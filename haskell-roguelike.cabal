@@ -47,8 +47,8 @@ executable haskell-roguelike
   main-is: HaskellRL.hs            
   
   -- Modules included in this executable, other than Main.
-  -- other-modules:       
+  other-modules: HaskellRoguelike.Level, HaskellRoguelike.Symbol      
   
   -- Other library packages from which modules are imported.
-  build-depends:       base ==4.6.*, hscurses ==1.4.*
+  build-depends:       base ==4.6.*, hscurses ==1.4.*, array
   
