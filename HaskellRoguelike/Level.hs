@@ -1,46 +1,48 @@
 module HaskellRoguelike.Level 
     (
-     Level,
-     levelHeight,
-     levelWidth,
-     defaultLevel,
-     symbolAt
+     module HaskellRoguelike.LevelType,
+     module HaskellRoguelike.Level
     ) where
 
-import Data.Array
+    import Data.Array
+    import Data.Map (Map)
+    import qualified Data.Map as Map
+    import Control.Monad.State
 
-import HaskellRoguelike.Symbol
+    import HaskellRoguelike.Symbol
+    import HaskellRoguelike.State
+    import HaskellRoguelike.EntityType
+    import HaskellRoguelike.LevelType
 
-data Cell = 
-    Cell { 
-      baseSymbol :: Symbol
-    }
-          
-          
-data Level = 
-    Level { 
-      cells :: Array (Int, Int) Cell
-    }
-           
-levelHeight :: Int
-levelHeight = 20
+    makeDefaultLevel :: RoguelikeM s Level
+    makeDefaultLevel = return defaultLevel
+
+    defaultLevel = 
+        let chooseCell (x,y)
+                | x == 0 = Cell VWall []
+                | x == levelWidth-1 = Cell VWall []
+                | y == 0 = Cell HWall []
+                | y == levelHeight-1 = Cell HWall []
+                | otherwise = Cell Floor []
+            levelArray = array ((0,0), (levelWidth-1,levelHeight-1)) 
+                         [ (p, chooseCell p) | 
+                           p <- range ((0,0), (levelWidth-1,levelHeight-1)) ]
+        in
+          Level levelArray Map.empty
+
+    addEntity :: Entity Level -> (Int,Int) -> RoguelikeM Level Bool
+    addEntity e p = 
+        let eid = entityID e
+            e'  = e{position = p}
+            in do {
+                 l <- get;
+                 c <- return ((cells l) ! p);
+                 put l{
+                   cells = (cells l)//[(p, c{entities = eid:(entities c)})],
+                   entityMap = Map.insert eid e' (entityMap l)
+                 };
+                 return True
+               }
+                  
+      
     
-levelWidth :: Int
-levelWidth = 80
-
-defaultLevel = 
-    Level (array ((0,0), (levelWidth-1,levelHeight-1)) 
-           [ (p, chooseCell p) | 
-             p <- range ((0,0), (levelWidth-1,levelHeight-1)) ])
-        where chooseCell (x,y)
-                  | x == 0 = Cell VWall
-                  | x == levelWidth-1 = Cell VWall
-                  | y == 0 = Cell HWall
-                  | y == levelHeight-1 = Cell HWall
-                  | otherwise = Cell Floor
-              
-symbolAt :: Level -> (Int, Int) -> Symbol
-symbolAt l p = symbol ((cells l) ! p)
-
-symbol :: Cell -> Symbol
-symbol c = baseSymbol c

@@ -50,5 +50,5 @@ executable haskell-roguelike
   other-modules: HaskellRoguelike.Level, HaskellRoguelike.Symbol      
   
   -- Other library packages from which modules are imported.
-  build-depends:       base ==4.6.*, hscurses ==1.4.*, array
+  build-depends:       base ==4.6.*, hscurses ==1.4.*, array, random, mtl, MonadRandom, containers
   
