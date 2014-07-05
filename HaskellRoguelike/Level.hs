@@ -37,11 +37,15 @@ module HaskellRoguelike.Level
             in do {
                  l <- get;
                  c <- return ((cells l) ! p);
-                 put l{
-                   cells = (cells l)//[(p, c{entities = eid:(entities c)})],
-                   entityMap = Map.insert eid e' (entityMap l)
-                 };
-                 return True
+                 if isClear c (entityMap l) then 
+                     do
+                       put l{
+                          cells = (cells l)//[(p, c{entities = eid:(entities c)})],
+                          entityMap = Map.insert eid e' (entityMap l)
+                        }
+                       return True
+                 else
+                     return False
                }
                   
       

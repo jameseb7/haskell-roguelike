@@ -35,3 +35,21 @@ module HaskellRoguelike.LevelType where
                           [] -> baseSymbol c;
                           e:es -> entitySymbol ((Map.!) m e)
                         }
+
+    isClear :: Cell -> Map EntityID (Entity Level) -> Bool
+    isClear c m = 
+        let hasLargeEntity = 
+                foldl 
+                (\b -> \eid -> b || ((entitySize $ (Map.!) m eid) == Large))
+                False (entities c)
+            in
+              if hasLargeEntity then
+                  False
+              else
+                  case baseSymbol c of
+                    Blank -> True
+                    Floor -> True
+                    _ -> False
+                    
+                  
+                                  

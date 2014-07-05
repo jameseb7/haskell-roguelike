@@ -9,10 +9,14 @@ module HaskellRoguelike.EntityType where
 
     type EntityID = Int
 
+    data EntitySize = Small | Large
+                      deriving (Eq, Ord, Show, Enum, Bounded)
+
     data Entity c = Entity {
           entityID :: EntityID,
           position :: (Int,Int),
           entitySymbol :: Symbol,
+          entitySize :: EntitySize,
           getAction :: Maybe (c -> RoguelikeM (Entity c) Action)
         }
 
