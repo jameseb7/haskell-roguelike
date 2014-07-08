@@ -15,9 +15,11 @@ module HaskellRoguelike.LevelType where
           
           
     data Level = 
-        Level { 
+        Level {
           cells :: Array (Int, Int) Cell,
-          entityMap :: Map EntityID (Entity Level)
+          entityMap :: Map EntityID (Entity Level),
+          nextActors :: [EntityID],
+          prevActors :: [EntityID]
         }
            
     levelHeight :: Int

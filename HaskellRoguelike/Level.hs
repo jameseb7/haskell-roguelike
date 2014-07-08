@@ -1,3 +1,5 @@
+{-# LANGUAGE DoAndIfThenElse #-}
+
 module HaskellRoguelike.Level 
     (
      module HaskellRoguelike.LevelType,
@@ -28,25 +30,47 @@ module HaskellRoguelike.Level
                          [ (p, chooseCell p) | 
                            p <- range ((0,0), (levelWidth-1,levelHeight-1)) ]
         in
-          Level levelArray Map.empty
+          Level levelArray Map.empty [] []
 
-    addEntity :: Entity Level -> (Int,Int) -> RoguelikeM Level Bool
-    addEntity e p = 
+    putEntity :: Entity Level -> (Int,Int) -> RoguelikeM Level Bool
+    putEntity e p = 
         let eid = entityID e
             e'  = e{position = p}
-            in do {
-                 l <- get;
-                 c <- return ((cells l) ! p);
-                 if isClear c (entityMap l) then 
-                     do
-                       put l{
-                          cells = (cells l)//[(p, c{entities = eid:(entities c)})],
-                          entityMap = Map.insert eid e' (entityMap l)
-                        }
-                       return True
-                 else
-                     return False
-               }
-                  
-      
-    
+            in do
+              l <- get
+              c <- return ((cells l) ! p)
+              if isClear c (entityMap l) 
+              then do {
+                     put l{
+                       cells = 
+                           (cells l)//[(p, c{entities = eid:(entities c)})],
+                       entityMap = Map.insert eid e' (entityMap l)
+                     };
+                     return True
+                   }
+              else
+                  return False
+
+    addActor :: Entity Level -> RoguelikeM Level ()
+    addActor e = 
+        state (\l ->
+                   let pa = prevActors l
+                       eid = entityID e
+                       ga = getAction e
+                   in
+                     case ga of
+                       Nothing -> ((), l) 
+                       Just _  -> ((), l{prevActors = eid:pa})
+              )
+
+
+    addEntity :: Entity Level -> (Int,Int) -> RoguelikeM Level Bool
+    addEntity e p =
+        do
+          putDone <- putEntity e p
+          if putDone then 
+              do
+                addActor e
+                return True
+          else
+              return False 
