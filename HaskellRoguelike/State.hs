@@ -21,8 +21,8 @@ module HaskellRoguelike.State where
     -- Datatype to indicate display actions in a safe, UI-independent way
     data RLDisplayAction =
         PutMessage String |
-        UpdateCell Int Int Symbol |
-        DrawLevel (Array (Int, Int) Symbol)
+        UpdateCell (Int,Int) Symbol |
+        DrawLevel (Array (Int,Int) Symbol)
 
     -- Monad transformer stack to hold all the state required by the roguelike
     type RoguelikeM s a = 
