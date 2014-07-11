@@ -47,8 +47,7 @@ module HaskellRoguelike.Level
                    cells = (cells l)//[(p, c{entities = eid:(entities c)})],
                    entityMap = Map.insert eid e' (entityMap l)
                  } 
-                l' <- get
-                tell [UpdateCell p (symbolAt l' p)]
+                tellUpdateCell p
                 return True
           else
               return False
@@ -130,8 +129,7 @@ module HaskellRoguelike.Level
                                if success then 
                                    do
                                      removeEntityFromCell e (x,y)
-                                     l' <- get
-                                     tell [UpdateCell (x,y) (symbolAt l' (x,y))]
+                                     tellUpdateCell (x,y)
                                else 
                                    return ()
                                if (dz /= 0) || (dw /= 0) then 
