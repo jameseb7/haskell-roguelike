@@ -62,13 +62,25 @@ readActionFromPlayer :: IO Action
 readActionFromPlayer = do c <- getCh
                           case c of
                             KeyChar '8' -> return $ Move North
+                            KeyChar 'k' -> return $ Move North
                             KeyUp       -> return $ Move North
                             KeyChar '6' -> return $ Move East
+                            KeyChar 'l' -> return $ Move East
                             KeyRight    -> return $ Move East
                             KeyChar '2' -> return $ Move South
+                            KeyChar 'j' -> return $ Move South
                             KeyDown     -> return $ Move South
                             KeyChar '4' -> return $ Move West
+                            KeyChar 'h' -> return $ Move West
                             KeyLeft     -> return $ Move West
+                            KeyChar '9' -> return $ Move NorthEast
+                            KeyChar 'u' -> return $ Move NorthEast
+                            KeyChar '7' -> return $ Move NorthWest
+                            KeyChar 'y' -> return $ Move NorthWest
+                            KeyChar '3' -> return $ Move SouthEast
+                            KeyChar 'n' -> return $ Move SouthEast
+                            KeyChar '1' -> return $ Move SouthWest
+                            KeyChar 'b' -> return $ Move SouthWest
                             KeyChar 'q' -> return $ None
                             _           -> readActionFromPlayer
                             
