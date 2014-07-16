@@ -16,7 +16,6 @@ module HaskellRoguelike.LevelType where
           entities :: [EntityID]
         }
           
-          
     data Level = 
         Level {
           cells :: Array (Int, Int) Cell,
@@ -30,6 +29,18 @@ module HaskellRoguelike.LevelType where
     
     levelWidth :: Int
     levelWidth = 80
+
+    xMax = levelWidth - 1
+    yMax = levelHeight - 1
+
+    blankLevel = let c = Cell Blank [] 
+                 in Level {
+                          cells = array ((0,0), (xMax,yMax)) 
+                                  [(p,c) | p <- range ((0,0), (xMax,yMax))],
+                          entityMap = Map.empty,
+                          nextActors = [],
+                          prevActors = []
+                        }
               
     symbolAt :: Level -> (Int, Int) -> Symbol
     symbolAt l p = cellSymbol ((cells l) ! p) (entityMap l)

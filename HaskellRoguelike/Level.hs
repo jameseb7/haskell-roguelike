@@ -18,21 +18,22 @@ module HaskellRoguelike.Level
     import HaskellRoguelike.EntityType
     import HaskellRoguelike.LevelType
 
-    makeDefaultLevel :: RoguelikeM s Level
-    makeDefaultLevel = return defaultLevel
+    uniformLevel :: Cell -> Level
+    uniformLevel c = 
+        let levelArray = array ((0,0), (xMax,yMax)) 
+                         [ (p, c) | p <- range ((0,0), (xMax,yMax)) ]
+        in blankLevel{cells = levelArray}
 
-    defaultLevel = 
-        let chooseCell (x,y)
-                | x == 0 = Cell VWall []
-                | x == levelWidth-1 = Cell VWall []
-                | y == 0 = Cell HWall []
-                | y == levelHeight-1 = Cell HWall []
-                | otherwise = Cell Floor []
-            levelArray = array ((0,0), (levelWidth-1,levelHeight-1)) 
-                         [ (p, chooseCell p) | 
-                           p <- range ((0,0), (levelWidth-1,levelHeight-1)) ]
-        in
-          Level levelArray Map.empty [] []
+    setCells :: Cell -> [(Int,Int)] -> RoguelikeM Level ()
+    setCells c ps = state (\l -> ((), l{cells = (cells l)//[(p,c) | p <- ps]}))
+
+    makeDefaultLevel :: RoguelikeM Level ()
+    makeDefaultLevel = 
+        do put $ uniformLevel (Cell Floor [])
+           setCells (Cell VWall []) (range ((0,    0),    (0,    yMax)))
+           setCells (Cell VWall []) (range ((xMax, 0),    (xMax, yMax)))
+           setCells (Cell HWall []) (range ((0,    0),    (xMax, 0)))
+           setCells (Cell HWall []) (range ((0,    yMax), (xMax, yMax)))
 
     putEntity :: Entity Level -> (Int,Int) -> RoguelikeM Level Bool
     putEntity e p = 

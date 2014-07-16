@@ -31,7 +31,7 @@ setupGame :: RoguelikeM () Level
 setupGame = 
     do
       p <- makePlayer
-      l <- makeDefaultLevel
+      (_,l) <- lift $ runStateT makeDefaultLevel blankLevel
       x <- getRandomR (1, levelWidth-2)
       y <- getRandomR (1, levelHeight-2)
       (_,l') <- lift $ runStateT (addEntity p (x,y)) l
