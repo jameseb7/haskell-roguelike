@@ -9,6 +9,7 @@ module HaskellRoguelike.Level
     import Data.Array
     import Data.Map (Map)
     import qualified Data.Map as Map
+    import Control.Monad.Random
     import Control.Monad.State
     import Control.Monad.Writer
 
@@ -34,6 +35,9 @@ module HaskellRoguelike.Level
            setCells (Cell VWall []) (range ((xMax, 0),    (xMax, yMax)))
            setCells (Cell HWall []) (range ((0,    0),    (xMax, 0)))
            setCells (Cell HWall []) (range ((0,    yMax), (xMax, yMax)))
+           xs <- getRandomRs (1, xMax-1)
+           ys <- getRandomRs (1, yMax-1)
+           setCells (Cell Rock []) (zipWith (,) (take 100 xs) (take 100 ys))
 
     putEntity :: Entity Level -> (Int,Int) -> RoguelikeM Level Bool
     putEntity e p = 
