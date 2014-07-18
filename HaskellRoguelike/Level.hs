@@ -30,14 +30,16 @@ module HaskellRoguelike.Level
 
     makeDefaultLevel :: RoguelikeM Level ()
     makeDefaultLevel = 
-        do put $ uniformLevel (Cell Floor [])
-           setCells (Cell VWall []) (range ((0,    0),    (0,    yMax)))
-           setCells (Cell VWall []) (range ((xMax, 0),    (xMax, yMax)))
-           setCells (Cell HWall []) (range ((0,    0),    (xMax, 0)))
-           setCells (Cell HWall []) (range ((0,    yMax), (xMax, yMax)))
+        do put $ uniformLevel (Cell Floor True [])
+           setCells (Cell VWall True []) (range ((0,    0),    (0,    yMax)))
+           setCells (Cell VWall True []) (range ((xMax, 0),    (xMax, yMax)))
+           setCells (Cell HWall True []) (range ((0,    0),    (xMax, 0)))
+           setCells (Cell HWall True []) (range ((0,    yMax), (xMax, yMax)))
            xs <- getRandomRs (1, xMax-1)
            ys <- getRandomRs (1, yMax-1)
-           setCells (Cell Rock []) (zipWith (,) (take 100 xs) (take 100 ys))
+           setCells (Cell Rock True []) (zipWith (,) (take 100 xs) (take 100 ys))
+           forM_ (range ((0,0),(xMax,yMax))) 
+                     (\p -> getCell p >>= (\c -> setCell p c{visible = True}))
 
     putEntity :: Entity Level -> (Int,Int) -> RoguelikeM Level Bool
     putEntity e p = 
@@ -52,10 +54,16 @@ module HaskellRoguelike.Level
                    cells = (cells l)//[(p, c{entities = eid:(entities c)})],
                    entityMap = Map.insert eid e' (entityMap l)
                  } 
+                if (entitySymbol e) == Player then
+                    state (\l -> ((),l{playerID = Just eid}))
+                else
+                    return ()
                 tellUpdateCell p
                 return True
           else
               return False
+          
+              
 
     addActor :: Entity Level -> RoguelikeM Level ()
     addActor e = 
@@ -134,7 +142,13 @@ module HaskellRoguelike.Level
                                if success then 
                                    do
                                      removeEntityFromCell e (x,y)
-                                     tellUpdateCell (x,y)
+                                     l <- get
+                                     case playerID l of
+                                         Just pid -> if eid == pid then 
+                                                         tellDrawLevel
+                                                     else
+                                                         tellUpdateCell (x,y)
+                                         Nothing -> tellUpdateCell (x,y)
                                else 
                                    return ()
                                if (dz /= 0) || (dw /= 0) then 
