@@ -114,46 +114,34 @@ module HaskellRoguelike.LevelType where
                     _ -> False
                     
     bresenhamLine :: (Int,Int) -> (Int,Int) -> (Cell -> (Bool,Cell)) -> RoguelikeM Level Bool
-    bresenhamLine (x0,y0) (x1,y1) f = 
-        let xBLLoop [] = return True
-            xBLLoop (x:xs) = let y0' = fromIntegral y0 :: Double
-                                 y1' = fromIntegral y1 :: Double
-                                 x0' = fromIntegral x0 :: Double
-                                 x1' = fromIntegral x1 :: Double
-                                 x' = fromIntegral x :: Double
-                                 y = round $ ((y1'-y0')/(x1'-x0'))*(x'-x0') + y0'
-                                   :: Int
+    bresenhamLine (x0,y0) (x1,y1) f = loop x0 y0 steps 
+        where dx = abs (x1 - x0)
+              dy = abs (y1 - y0)
+              sx = signum (x1 - x0)
+              sy = signum (y1 - y0)
+              steps = if dy > dx then 
+                          dy - dx
+                      else
+                          dx - dy
+              loop x y n = let (x',y',n') =
+                                     if dy > dx then
+                                         if n <= 0 then
+                                             (x+sx, y+sy, n+steps)
+                                         else
+                                             (x, y+sy, n-dx)
+                                     else
+                                         if n <= 0 then
+                                             (x+sx, y+sy, n+steps)
+                                         else
+                                             (x+sx, y, n-dy)           
                              in do c <- getCell (x,y)
                                    (b,c') <- return $ f c
                                    setCell (x,y) c'
-                                   case b of
-                                     True -> xBLLoop xs
-                                     False -> return False
-            yBLLoop [] = return True
-            yBLLoop (y:ys) = let y0' = fromIntegral y0 :: Double
-                                 y1' = fromIntegral y1 :: Double
-                                 x0' = fromIntegral x0 :: Double
-                                 x1' = fromIntegral x1 :: Double
-                                 y' = fromIntegral y :: Double
-                                 x = round $ ((x1'-x0')/(y1'-y0'))*(y'-y0') + x0'
-                                  :: Int
-                             in do c <- getCell (x,y)
-                                   (b,c') <- return $ f c
-                                   setCell (x,y) c'
-                                   case b of
-                                     True -> yBLLoop ys
-                                     False -> return False
-        in
-          if abs (x1 - x0) < abs (y1 - y0) then
-              if y0 > y1 then
-                  yBLLoop [y0,y0-1..y1]
-              else 
-                  yBLLoop [y0..y1]
-          else
-              if x0 > x1 then
-                  xBLLoop [x0,x0-1..x1]
-              else
-                  xBLLoop [x0..x1]
+                                   case (x == x1) && (y == y1) of
+                                     True -> return True
+                                     False -> case b of
+                                                True -> loop x' y' n'
+                                                False -> return False
           
     hasLOS :: (Int,Int) -> (Int,Int) -> RoguelikeM Level Bool
     hasLOS p0 p1 = bresenhamLine p0 p1 (\c -> (blocksLOS c, c))
