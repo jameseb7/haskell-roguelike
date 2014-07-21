@@ -23,7 +23,8 @@ module HaskellRoguelike.State where
     data RLDisplayAction =
         PutMessage String |
         UpdateCell (Int,Int) Symbol |
-        DrawLevel (Array (Int,Int) Symbol)
+        DrawLevel (Array (Int,Int) Symbol) |
+        LogMessage String
                   deriving (Show)
 
     -- Monad transformer stack to hold all the state required by the roguelike

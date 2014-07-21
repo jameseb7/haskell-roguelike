@@ -78,8 +78,9 @@ module HaskellRoguelike.LevelType where
            case playerID l of
              Just pid -> 
                  do doFOV (position $ (Map.!) (entityMap l) (pid))
-                    xs <- return $ assocs (cells l)
-                    ys <- return $ map (\(p,c) -> (p,symbolAt l p)) xs
+                    l' <- get
+                    xs <- return $ assocs (cells l')
+                    ys <- return $ map (\(p,c) -> (p,symbolAt l' p)) xs
                     tell [DrawLevel 
                           (array ((0,0), (levelWidth-1,levelHeight-1)) ys)]
              Nothing -> return ()

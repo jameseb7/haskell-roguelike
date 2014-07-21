@@ -61,6 +61,7 @@ handleRLDisplayAction rlda = do case rlda of
 readActionFromPlayer :: IO Action
 readActionFromPlayer = do c <- getCh
                           case c of
+                            KeyChar '.' -> return $ Move Here
                             KeyChar '8' -> return $ Move North
                             KeyChar 'k' -> return $ Move North
                             KeyUp       -> return $ Move North
@@ -128,6 +129,9 @@ handleRLDisplayActions a (x:xs) =
                            handleRLDisplayActions a xs
       UpdateCell p s -> handleRLDisplayActions (a//[(p,s)]) xs
       DrawLevel a'   -> handleRLDisplayActions a' xs
+      LogMessage str -> do appendFile "HakellRL.log" str
+                           handleRLDisplayActions a xs
+
 displaySymbolArray a = 
     let drawLine y = putStrLn $ map (\x -> symbolChar (a!(x,y))) (range (0,xMax))
     in mapM_ drawLine (range (0,yMax))
