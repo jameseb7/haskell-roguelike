@@ -20,9 +20,9 @@ main =
        nl False
        g <- getStdGen
        (l,_,rls,g',w) <- return $ runRoguelikeM setupGame () (RLState 0 None) g
-       mapM_ handleRLDisplayAction w
+       sa <- handleRLDisplayActions w (array ((0,0), (xMax,yMax)) [])
        refresh
-       runGame l rls g'
+       runGame l rls g' sa
        endWin
                                                   
 setupGame :: RoguelikeM () Level
@@ -37,26 +37,35 @@ setupGame =
       lift $ runStateT tellDrawLevel l''
       return l''
 
-runGame :: Level -> RLState -> StdGen -> IO ()
-runGame l rls g = 
+runGame :: Level -> RLState -> StdGen -> (Array (Int, Int) Symbol) -> IO ()
+runGame l rls g sa = 
     do (a,l',rls',g',w) <- return $ runRoguelikeM runTurn l rls g
-       mapM_ handleRLDisplayAction w
+       sa' <- handleRLDisplayActions w sa
+       drawSymbolArray sa'
+       move 0 0
+       refresh
        case a of
-         None -> runGame l' rls' g'
+         None -> runGame l' rls' g' sa'
          PlayerAction -> do a' <- readActionFromPlayer
                             case a' of
                               None -> return ()
-                              _    -> runGame l' rls'{playerAction = a'} g'
+                              _    -> runGame l' rls'{playerAction = a'} g' sa'
          _ -> error ("Invalid Action at toplevel: " ++ (show a))
 
-handleRLDisplayAction :: RLDisplayAction -> IO ()
-handleRLDisplayAction rlda = do case rlda of
-                                  PutMessage str   -> putMessage str
-                                  UpdateCell p s -> drawSymbol p s
-                                  DrawLevel  sa    -> drawSymbolArray sa
-                                move 0 0
-                                refresh
-                             
+handleRLDisplayActions :: [RLDisplayAction] -> (Array (Int, Int) Symbol) -> IO (Array (Int, Int) Symbol)
+handleRLDisplayActions [] sa   = return sa
+handleRLDisplayActions (x:xs) sa = 
+    case x of
+      PutMessage str -> do drawSymbolArray sa
+                           putMessage str
+                           refresh
+                           move 0 0
+                           clrToEol
+                           handleRLDisplayActions xs sa
+      UpdateCell p s -> handleRLDisplayActions xs (sa//[(p,s)])
+      DrawLevel sa'  -> handleRLDisplayActions xs sa'
+      LogMessage str -> do appendFile "HakellRL.log" str
+                           handleRLDisplayActions xs sa
 
 readActionFromPlayer :: IO Action
 readActionFromPlayer = do c <- getCh
@@ -122,15 +131,15 @@ symbolChar s = case s of
                  HWall  -> '-'
                  VWall  -> '|'
                  Player -> '@'
-handleRLDisplayActions a []   = return a
-handleRLDisplayActions a (x:xs) = 
+handleRLDisplayActions' a []   = return a
+handleRLDisplayActions' a (x:xs) = 
     case x of
       PutMessage str -> do putStrLn str
-                           handleRLDisplayActions a xs
-      UpdateCell p s -> handleRLDisplayActions (a//[(p,s)]) xs
-      DrawLevel a'   -> handleRLDisplayActions a' xs
+                           handleRLDisplayActions' a xs
+      UpdateCell p s -> handleRLDisplayActions' (a//[(p,s)]) xs
+      DrawLevel a'   -> handleRLDisplayActions' a' xs
       LogMessage str -> do appendFile "HakellRL.log" str
-                           handleRLDisplayActions a xs
+                           handleRLDisplayActions' a xs
 
 displaySymbolArray a = 
     let drawLine y = putStrLn $ map (\x -> symbolChar (a!(x,y))) (range (0,xMax))
@@ -157,7 +166,7 @@ getPlayerAction' = do c <- getChar
                         _   -> getPlayerAction'
 runGame' l rls g sa = 
     do (a,l',rls',g',w) <- return $ runRoguelikeM runTurn l rls g
-       sa' <- handleRLDisplayActions sa w
+       sa' <- handleRLDisplayActions' sa w
        displaySymbolArray sa'
        case a of
          None -> runGame' l' rls' g' sa'
@@ -168,6 +177,6 @@ runGame' l rls g sa =
          _ -> error ("Invalid Action at toplevel: " ++ (show a))
 debugMain = do g <- getStdGen
                (l,_,rls,g',w) <- return $ runRoguelikeM setupGame () (RLState 0 None) g
-               sa <- handleRLDisplayActions (array ((0,0), (xMax,yMax)) []) w
+               sa <- handleRLDisplayActions' (array ((0,0), (xMax,yMax)) []) w
                displaySymbolArray sa
                runGame' l rls g' sa
