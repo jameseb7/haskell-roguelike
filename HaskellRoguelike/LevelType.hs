@@ -16,7 +16,11 @@ module HaskellRoguelike.LevelType where
           visible :: Bool,
           entities :: [EntityID]
         }
-              deriving (Eq,Show)
+        deriving (Eq,Show)
+
+    class CellGrid c where
+        getCell :: c -> (Int,Int) -> Maybe Cell
+        setCell :: c -> (Int,Int) -> Cell -> c
           
     data Level = 
         Level {
@@ -26,6 +30,14 @@ module HaskellRoguelike.LevelType where
           prevActors :: [EntityID],
           playerID :: Maybe EntityID
         }
+
+    instance CellGrid Level where
+        getCell l (x,y) = let ((x1,y1),(x2,y2)) = bounds (cells l) in
+                      if (x < x1) || (y < y1) || (x > x2) || (y > y2) then
+                          Nothing
+                      else
+                          Just ((cells l) ! (x,y))
+        setCell l p c = l{cells = (cells l)//[(p,c)]}
            
     levelHeight :: Int
     levelHeight = 20
@@ -53,13 +65,13 @@ module HaskellRoguelike.LevelType where
                       else
                           Blank
 
-    getCell :: (Int,Int) -> RoguelikeM Level Cell
-    getCell p = do l <- get
-                   return ((cells l) ! p)
+    getCellM :: CellGrid c =>  (Int,Int) -> RoguelikeM c (Maybe Cell)
+    getCellM p = do l <- get
+                    return $ getCell l p
 
-    setCell :: (Int,Int) -> Cell -> RoguelikeM Level ()
-    setCell p c = do l <- get
-                     put l{cells = (cells l)//[(p,c)]}
+    setCellM :: CellGrid c => (Int,Int) -> Cell -> RoguelikeM c ()
+    setCellM p c = do l <- get
+                      put $ setCell l p c
 
     tellUpdateCell :: (Int,Int) -> RoguelikeM Level ()
     tellUpdateCell p = 
@@ -114,7 +126,8 @@ module HaskellRoguelike.LevelType where
                     Floor -> True
                     _ -> False
                     
-    bresenhamLine :: (Int,Int) -> (Int,Int) -> (Cell -> (Bool,Cell)) -> RoguelikeM Level Bool
+    bresenhamLine :: CellGrid c => 
+                     (Int,Int) -> (Int,Int) -> (Cell -> (Bool,Cell)) -> RoguelikeM c Bool
     bresenhamLine (x0,y0) (x1,y1) f = loop x0 y0 steps 
         where dx = abs (x1 - x0)
               dy = abs (y1 - y0)
@@ -135,14 +148,17 @@ module HaskellRoguelike.LevelType where
                                              (x+sx, y+sy, n+steps)
                                          else
                                              (x+sx, y, n-dy)           
-                             in do c <- getCell (x,y)
-                                   (b,c') <- return $ f c
-                                   setCell (x,y) c'
-                                   case (x == x1) && (y == y1) of
-                                     True -> return True
-                                     False -> case b of
-                                                True -> loop x' y' n'
-                                                False -> return False
+                             in do mc <- getCellM (x,y)
+                                   case mc of
+                                     Nothing -> return False
+                                     Just c -> do (b,c') <- return $ f c
+                                                  setCellM (x,y) c'
+                                                  case (x == x1) && (y == y1) of
+                                                    True -> return True
+                                                    False -> 
+                                                        case b of
+                                                          True -> loop x' y' n'
+                                                          False -> return False
           
     hasLOS :: (Int,Int) -> (Int,Int) -> RoguelikeM Level Bool
     hasLOS p0 p1 = bresenhamLine p0 p1 (\c -> (blocksLOS c, c))
@@ -153,7 +169,11 @@ module HaskellRoguelike.LevelType where
                   bresenhamLine p0 p1 (\c -> (blocksLOS c, c{visible=True})))
         in
           do 
-            forM_ (range ((0,0), (xMax,yMax))) (\p -> getCell p >>= (\c -> setCell p c{visible=False}))
+            forM_ (range ((0,0), (xMax,yMax))) 
+                      (\p -> do mc <- getCellM p
+                                case mc of
+                                  Nothing -> return ()
+                                  Just c -> setCellM p c{visible=False})
             forM_ (range ((0,0), (xMax,0))) bl
             forM_ (range ((0,0), (0,yMax))) bl
             forM_ (range ((0,yMax), (xMax,yMax))) bl

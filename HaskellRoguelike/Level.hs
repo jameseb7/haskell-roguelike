@@ -38,8 +38,6 @@ module HaskellRoguelike.Level
            xs <- getRandomRs (1, xMax-1)
            ys <- getRandomRs (1, yMax-1)
            setCells (Cell Rock True []) (zipWith (,) (take 100 xs) (take 100 ys))
-           forM_ (range ((0,0),(xMax,yMax))) 
-                     (\p -> getCell p >>= (\c -> setCell p c{visible = True}))
 
     putEntity :: Entity Level -> (Int,Int) -> RoguelikeM Level Bool
     putEntity e p = 
