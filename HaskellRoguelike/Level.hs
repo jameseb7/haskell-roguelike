@@ -17,6 +17,7 @@ module HaskellRoguelike.Level
     import HaskellRoguelike.Action
     import HaskellRoguelike.Symbol
     import HaskellRoguelike.State
+    import HaskellRoguelike.Entity
     import HaskellRoguelike.EntityType
     import HaskellRoguelike.LevelType
 
@@ -90,11 +91,10 @@ module HaskellRoguelike.Level
         state (\l ->
                    let pa = prevActors l
                        eid = entityID e
-                       ga = getAction e
                    in
-                     case ga of
-                       Nothing -> ((), l) 
-                       Just _  -> ((), l{prevActors = eid:pa})
+                     case ai e of
+                       NoAI -> ((), l) 
+                       _    -> ((), l{prevActors = eid:pa})
               )
 
 
@@ -124,10 +124,10 @@ module HaskellRoguelike.Level
                 actorLookup <- return $ Map.lookup eid (entityMap l)
                 case actorLookup of 
                   Nothing -> put l{nextActors = eids} >> runTurn
-                  Just actor -> case getAction actor of
-                                  Nothing -> put l{nextActors = eids} >> runTurn
-                                  Just ga -> do 
-                                      (action, actor') <- lift $ runStateT (ga l) actor
+                  Just actor -> case ai actor of
+                                  NoAI -> put l{nextActors = eids} >> runTurn
+                                  actorAI -> do 
+                                      (action, actor') <- lift $ runStateT (getAction actorAI l) actor
                                       put l{entityMap = Map.insert eid actor' (entityMap l)}
                                       actionDone <- handleAction actor' action
                                       if actionDone then

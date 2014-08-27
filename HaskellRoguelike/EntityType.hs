@@ -12,12 +12,15 @@ module HaskellRoguelike.EntityType where
     data EntitySize = Small | Large
                       deriving (Eq, Ord, Show, Enum, Bounded)
 
+    data AI = NoAI | PlayerAI
+        deriving (Eq, Show, Enum)
+
     data Entity c = Entity {
           entityID :: EntityID,
           position :: (Int,Int),
           entitySymbol :: EntitySymbol,
           entitySize :: EntitySize,
-          getAction :: Maybe (c -> RoguelikeM (Entity c) Action)
+          ai :: AI
         }
 
     getEntityID :: RoguelikeM s EntityID

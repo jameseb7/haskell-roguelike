@@ -14,7 +14,12 @@ module HaskellRoguelike.Entity
     import HaskellRoguelike.LevelType
 
     blankEntity :: Entity Level
-    blankEntity = Entity 0 (0,0) BlankEntity Small Nothing
+    blankEntity = Entity 0 (0,0) BlankEntity Small NoAI
+
+    getAction :: AI -> Level -> RoguelikeM (Entity Level) Action
+    getAction a l = case a of
+                      NoAI -> return None
+                      PlayerAI -> getPlayerAction l
 
     getPlayerAction :: Level -> RoguelikeM (Entity Level) Action
     getPlayerAction l = 
@@ -28,6 +33,6 @@ module HaskellRoguelike.Entity
     makePlayer = 
         do 
           eid <- getEntityID
-          return (Entity eid (0,0) Player Large (Just getPlayerAction))
+          return (Entity eid (0,0) Player Large PlayerAI)
           
                        
