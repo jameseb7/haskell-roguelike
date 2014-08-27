@@ -15,7 +15,7 @@ module HaskellRoguelike.EntityType where
     data Entity c = Entity {
           entityID :: EntityID,
           position :: (Int,Int),
-          entitySymbol :: Symbol,
+          entitySymbol :: EntitySymbol,
           entitySize :: EntitySize,
           getAction :: Maybe (c -> RoguelikeM (Entity c) Action)
         }

@@ -19,6 +19,7 @@ main =
        cBreak True
        nl False
        g <- getStdGen
+       writeFile "HaskellRL.log" ""
        (l,_,rls,g',w) <- return $ runRoguelikeM setupGame () (RLState 0 None) g
        sa <- handleRLDisplayActions w (array ((0,0), (xMax,yMax)) [])
        refresh
@@ -29,7 +30,7 @@ setupGame :: RoguelikeM () Level
 setupGame = 
     do
       p <- makePlayer
-      (_,l) <- lift $ runStateT makeDefaultLevel blankLevel
+      (_,l) <- lift $ runStateT makeMaze blankLevel
       x <- getRandomR (1, levelWidth-2)
       y <- getRandomR (1, levelHeight-2)
       (_,l') <- lift $ runStateT (addEntity p (x,y)) l
@@ -64,7 +65,7 @@ handleRLDisplayActions (x:xs) sa =
                            handleRLDisplayActions xs sa
       UpdateCell p s -> handleRLDisplayActions xs (sa//[(p,s)])
       DrawLevel sa'  -> handleRLDisplayActions xs sa'
-      LogMessage str -> do appendFile "HakellRL.log" str
+      LogMessage str -> do appendFile "HaskellRL.log" str
                            handleRLDisplayActions xs sa
 
 readActionFromPlayer :: IO Action
@@ -103,18 +104,28 @@ putMessage str =
        getCh
        return ()
        
-      
+charTerrainSymbol :: TerrainSymbol -> Char
+charTerrainSymbol s = case s of
+                        BlankTerrain  -> ' '
+                        Floor  -> '.'
+                        Rock   -> '#'
+                        HWall  -> '-'
+                        VWall  -> '|'
+
+charEntitySymbol :: EntitySymbol -> Char
+charEntitySymbol s = case s of
+                       BlankEntity -> ' '
+                       Player -> '@'
   
 drawSymbol :: (Int,Int) -> Symbol -> IO ()
 drawSymbol (x,y) s = mvWAddStr stdScr (y+1) x [c]
-    where c = case s of {
-                       Blank  -> ' ';
-                       Floor  -> '.';
-                       Rock   -> '#';
-                       HWall  -> '-';
-                       VWall  -> '|';
-                       Player -> '@'
-                     }
+    where c = case s of 
+                Visible s' -> case s' of 
+                                Left ts -> charTerrainSymbol ts
+                                Right es -> charEntitySymbol es
+                Explored s' -> charTerrainSymbol s'
+                Unexplored -> ' '
+                                            
 
 drawSymbolArray :: (Array (Int, Int) Symbol) -> IO ()
 drawSymbolArray sa = forM_ xs (\x -> drawSymbol x (sa ! x))
@@ -124,13 +135,12 @@ drawLevel :: Level -> IO ()
 drawLevel l = forM_ xs (\x -> drawSymbol x (symbolAt l x))
     where xs = range ((0,0), (xMax,yMax))
           
-symbolChar s = case s of
-                 Blank  -> ' '
-                 Floor  -> '.'
-                 Rock   -> '#'
-                 HWall  -> '-'
-                 VWall  -> '|'
-                 Player -> '@'
+symbolChar s = case s of 
+                 Visible s' -> case s' of 
+                                 Left ts -> charTerrainSymbol ts
+                                 Right es -> charEntitySymbol es
+                 Explored s' -> charTerrainSymbol s'
+                 Unexplored -> ' '
 handleRLDisplayActions' a []   = return a
 handleRLDisplayActions' a (x:xs) = 
     case x of

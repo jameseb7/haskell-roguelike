@@ -9,6 +9,7 @@ module HaskellRoguelike.Level
     import Data.Array
     import Data.Map (Map)
     import qualified Data.Map as Map
+    import Data.List
     import Control.Monad.Random
     import Control.Monad.State
     import Control.Monad.Writer
@@ -30,14 +31,35 @@ module HaskellRoguelike.Level
 
     makeDefaultLevel :: RoguelikeM Level ()
     makeDefaultLevel = 
-        do put $ uniformLevel (Cell Floor True [])
-           setCells (Cell VWall True []) (range ((0,    0),    (0,    yMax)))
-           setCells (Cell VWall True []) (range ((xMax, 0),    (xMax, yMax)))
-           setCells (Cell HWall True []) (range ((0,    0),    (xMax, 0)))
-           setCells (Cell HWall True []) (range ((0,    yMax), (xMax, yMax)))
+        do put $ uniformLevel (Cell Floor False False [])
+           setCells blankCell{baseSymbol=VWall} (range ((0,    0),    (0,    yMax)))
+           setCells blankCell{baseSymbol=VWall} (range ((xMax, 0),    (xMax, yMax)))
+           setCells blankCell{baseSymbol=HWall} (range ((0,    0),    (xMax, 0)))
+           setCells blankCell{baseSymbol=HWall} (range ((0,    yMax), (xMax, yMax)))
            xs <- getRandomRs (1, xMax-1)
            ys <- getRandomRs (1, yMax-1)
-           setCells (Cell Rock True []) (zipWith (,) (take 100 xs) (take 100 ys))
+           setCells blankCell{baseSymbol=Rock} (zipWith (,) (take 500 xs) (take 500 ys))
+
+    makeMaze :: RoguelikeM Level ()
+    makeMaze = do put $ uniformLevel (Cell Rock False False [])
+                  setCells blankCell{baseSymbol=VWall} (range ((0,    0),    (0,    yMax)))
+                  setCells blankCell{baseSymbol=VWall} (range ((xMax, 0),    (xMax, yMax)))
+                  setCells blankCell{baseSymbol=HWall} (range ((0,    0),    (xMax, 0)))
+                  setCells blankCell{baseSymbol=HWall} (range ((0,    yMax), (xMax, yMax)))
+                  setCellM (1,1) blankCell{baseSymbol=Floor}
+                  makeMaze' [((1,3),(1,2)),((3,1),(2,1))] [(1,1)]
+        where makeMaze' [] _ = return ()
+              makeMaze' xs ys = do (p,p') <- uniform xs
+                                   setCellM p blankCell{baseSymbol=Floor}
+                                   setCellM p' blankCell{baseSymbol=Floor}
+                                   makeMaze' ((neighbours p ys) ++ (filter (\(a,b) -> a /= p) xs)) (p:ys)
+              neighbours (x,y) ys = let p1 = if x <= 2 then [] else [((x-2,y),(x-1,y))]
+                                        p2 = if y <= 2 then [] else [((x,y-2),(x,y-1))]
+                                        p3 = if x >= xMax-2 then [] else [((x+2,y),(x+1,y))]
+                                        p4 = if y >= yMax-2 then [] else [((x,y+2),(x,y+1))]
+                                    in filter (\(p,p') -> notElem p ys) (p1++p2++p3++p4)
+                                
+
 
     putEntity :: Entity Level -> (Int,Int) -> RoguelikeM Level Bool
     putEntity e p = 

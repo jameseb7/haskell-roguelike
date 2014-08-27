@@ -14,7 +14,7 @@ module HaskellRoguelike.Entity
     import HaskellRoguelike.LevelType
 
     blankEntity :: Entity Level
-    blankEntity = Entity 0 (0,0) Blank Small Nothing
+    blankEntity = Entity 0 (0,0) BlankEntity Small Nothing
 
     getPlayerAction :: Level -> RoguelikeM (Entity Level) Action
     getPlayerAction l = 

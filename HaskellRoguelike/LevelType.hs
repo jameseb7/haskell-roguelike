@@ -12,8 +12,9 @@ module HaskellRoguelike.LevelType where
 
     data Cell = 
         Cell { 
-          baseSymbol :: Symbol,
+          baseSymbol :: TerrainSymbol,
           visible :: Bool,
+          explored :: Bool,
           entities :: [EntityID]
         }
         deriving (Eq,Show)
@@ -48,22 +49,20 @@ module HaskellRoguelike.LevelType where
     xMax = levelWidth - 1
     yMax = levelHeight - 1
 
-    blankLevel = let c = Cell Blank True [] 
-                 in Level {
-                          cells = array ((0,0), (xMax,yMax)) 
-                                  [(p,c) | p <- range ((0,0), (xMax,yMax))],
-                          entityMap = Map.empty,
-                          nextActors = [],
-                          prevActors = [],
-                          playerID = Nothing
-                        }
+    blankCell = Cell BlankTerrain False False [] 
+
+    blankLevel = Level {
+                   cells = array ((0,0), (xMax,yMax)) 
+                           [(p,blankCell) | p <- range ((0,0), (xMax,yMax))],
+                   entityMap = Map.empty,
+                   nextActors = [],
+                   prevActors = [],
+                   playerID = Nothing
+                 }
               
     symbolAt :: Level -> (Int, Int) -> Symbol
     symbolAt l p = let c = (cells l) ! p
-                   in if visible c then
-                          cellSymbol c (entityMap l)
-                      else
-                          Blank
+                   in cellSymbol c (entityMap l)
 
     getCellM :: CellGrid c =>  (Int,Int) -> RoguelikeM c (Maybe Cell)
     getCellM p = do l <- get
@@ -100,10 +99,15 @@ module HaskellRoguelike.LevelType where
                    
     cellSymbol :: Cell -> Map EntityID (Entity Level) -> Symbol
     cellSymbol c m = 
-        case entities c of {
-                          [] -> baseSymbol c;
-                          e:es -> entitySymbol ((Map.!) m e)
-                        }
+        if visible c then
+            case entities c of
+              [] -> Visible (Left (baseSymbol c));
+              e:es -> Visible (Right (entitySymbol ((Map.!) m e)))
+        else
+            if explored c then
+                Explored (baseSymbol c)
+            else
+                Unexplored
 
     isClear :: Cell -> Map EntityID (Entity Level) -> Bool
     isClear c m = 
@@ -116,13 +120,13 @@ module HaskellRoguelike.LevelType where
                   False
               else
                   case baseSymbol c of
-                    Blank -> True
+                    BlankTerrain -> True
                     Floor -> True
                     _ -> False
 
     blocksLOS :: Cell -> Bool
     blocksLOS c = case baseSymbol c of
-                    Blank -> True
+                    BlankTerrain -> True
                     Floor -> True
                     _ -> False
                     
@@ -166,7 +170,8 @@ module HaskellRoguelike.LevelType where
     doFOV :: (Int,Int) -> RoguelikeM Level ()
     doFOV p0 = 
         let bl = (\p1 -> 
-                  bresenhamLine p0 p1 (\c -> (blocksLOS c, c{visible=True})))
+                  bresenhamLine p0 p1 (\c -> (blocksLOS c, 
+                                              c{visible=True, explored=True})))
         in
           do 
             forM_ (range ((0,0), (xMax,yMax))) 
