@@ -28,32 +28,32 @@ module HaskellRoguelike.Level
         in blankLevel{cells = levelArray}
 
     setCells :: Cell -> [(Int,Int)] -> RoguelikeM Level ()
-    setCells c ps = state (\l -> ((), l{cells = (cells l)//[(p,c) | p <- ps]}))
+    setCells c ps = state (\l -> ((), l{cells = cells l//[(p,c) | p <- ps]}))
+
+    wallLevel :: RoguelikeM Level ()
+    wallLevel = do setCells blankCell{baseSymbol=VWall} (range ((0,    0),    (0,    yMax)))
+                   setCells blankCell{baseSymbol=VWall} (range ((xMax, 0),    (xMax, yMax)))
+                   setCells blankCell{baseSymbol=HWall} (range ((0,    0),    (xMax, 0)))
+                   setCells blankCell{baseSymbol=HWall} (range ((0,    yMax), (xMax, yMax)))
 
     makeDefaultLevel :: RoguelikeM Level ()
     makeDefaultLevel = 
         do put $ uniformLevel (Cell Floor False False [])
-           setCells blankCell{baseSymbol=VWall} (range ((0,    0),    (0,    yMax)))
-           setCells blankCell{baseSymbol=VWall} (range ((xMax, 0),    (xMax, yMax)))
-           setCells blankCell{baseSymbol=HWall} (range ((0,    0),    (xMax, 0)))
-           setCells blankCell{baseSymbol=HWall} (range ((0,    yMax), (xMax, yMax)))
+           wallLevel
            xs <- getRandomRs (1, xMax-1)
            ys <- getRandomRs (1, yMax-1)
-           setCells blankCell{baseSymbol=Rock} (zipWith (,) (take 500 xs) (take 500 ys))
+           setCells blankCell{baseSymbol=Rock} (zip (take 500 xs) (take 500 ys))
 
-    makeMaze :: RoguelikeM Level ()
-    makeMaze = do put $ uniformLevel (Cell Rock False False [])
-                  setCells blankCell{baseSymbol=VWall} (range ((0,    0),    (0,    yMax)))
-                  setCells blankCell{baseSymbol=VWall} (range ((xMax, 0),    (xMax, yMax)))
-                  setCells blankCell{baseSymbol=HWall} (range ((0,    0),    (xMax, 0)))
-                  setCells blankCell{baseSymbol=HWall} (range ((0,    yMax), (xMax, yMax)))
-                  setCellM (1,1) blankCell{baseSymbol=Floor}
-                  makeMaze' [((1,3),(1,2)),((3,1),(2,1))] [(1,1)]
+    makeMaze :: (Int,Int) -> RoguelikeM Level ()
+    makeMaze p = do put $ uniformLevel (Cell Rock False False [])
+                    wallLevel
+                    setCellM p blankCell{baseSymbol=Floor}
+                    makeMaze' (neighbours p []) [p]
         where makeMaze' [] _ = return ()
               makeMaze' xs ys = do (p,p') <- uniform xs
                                    setCellM p blankCell{baseSymbol=Floor}
                                    setCellM p' blankCell{baseSymbol=Floor}
-                                   makeMaze' ((neighbours p ys) ++ (filter (\(a,b) -> a /= p) xs)) (p:ys)
+                                   makeMaze' (neighbours p ys ++ filter (\(a,b) -> a /= p) xs) (p:ys)
               neighbours (x,y) ys = let p1 = if x <= 2 then [] else [((x-2,y),(x-1,y))]
                                         p2 = if y <= 2 then [] else [((x,y-2),(x,y-1))]
                                         p3 = if x >= xMax-2 then [] else [((x+2,y),(x+1,y))]
@@ -68,23 +68,24 @@ module HaskellRoguelike.Level
             e'  = e{position = p}
         in do
           l <- get
-          c <- return ((cells l) ! p)
+          let c = cells l ! p
           if isClear c (entityMap l) then 
-              do 
-                put l{
-                   cells = (cells l)//[(p, c{entities = eid:(entities c)})],
-                   entityMap = Map.insert eid e' (entityMap l)
-                 } 
-                if (entitySymbol e) == Player then
-                    state (\l -> ((),l{playerID = Just eid}))
-                else
-                    return ()
-                tellUpdateCell p
-                return True
+              putEntityForce e p >> return True
           else
               return False
           
-              
+    putEntityForce :: Entity Level -> (Int,Int) -> RoguelikeM Level ()
+    putEntityForce e p = 
+        do l <- get
+           let c = cells l ! p
+           let eid = entityID e
+           let e'  = e{position = p}
+           put l{cells = cells l//[(p, c{entities = eid:entities c})],
+                 entityMap = Map.insert eid e' (entityMap l)
+                } 
+           when (entitySymbol e == Player) $
+                state (\l -> ((),l{playerID = Just eid}))
+           tellUpdateCell p
 
     addActor :: Entity Level -> RoguelikeM Level ()
     addActor e = 
@@ -103,50 +104,53 @@ module HaskellRoguelike.Level
         do
           putDone <- putEntity e p
           if putDone then 
-              do
-                addActor e
-                return True
+              do addActor e
+                 return True
           else
               return False
 
-    runTurn :: RoguelikeM Level Action
-    runTurn = do
-      l <- get
-      na <- return $ nextActors l
-      case na of
-        [] -> do 
-          put l{
-                nextActors = reverse (prevActors l),
-                prevActors = []
-              }
-          return None
-        eid:eids -> do
-                actorLookup <- return $ Map.lookup eid (entityMap l)
-                case actorLookup of 
-                  Nothing -> put l{nextActors = eids} >> runTurn
-                  Just actor -> case ai actor of
-                                  NoAI -> put l{nextActors = eids} >> runTurn
-                                  actorAI -> do 
-                                      (action, actor') <- lift $ runStateT (getAction actorAI l) actor
-                                      put l{entityMap = Map.insert eid actor' (entityMap l)}
-                                      actionDone <- handleAction actor' action
-                                      if actionDone then
-                                          state (\l -> ((),l{
-                                                          nextActors = eids,
-                                                          prevActors = 
-                                                              eid:(prevActors l)
-                                                        }))
-                                             >> runTurn
-                                      else
-                                          return action
+    addEntityForce :: Entity Level -> (Int,Int) -> RoguelikeM Level ()
+    addEntityForce e p = putEntityForce e p >> addActor e
 
-    handleAction :: (Entity Level) -> Action -> RoguelikeM Level Bool
+    runTurn :: RoguelikeM Level Action
+    runTurn = 
+        do l <- get
+           let na = nextActors l
+           case na of
+             [] -> do 
+               put l{
+                     nextActors = reverse (prevActors l),
+                     prevActors = []
+                   }
+               return None
+             eid:eids -> do
+                     let actorLookup = Map.lookup eid (entityMap l)
+                     case actorLookup of 
+                       Nothing -> put l{nextActors = eids} >> runTurn
+                       Just actor -> 
+                           case ai actor of
+                             NoAI -> put l{nextActors = eids} >> runTurn
+                             actorAI -> do 
+                                        (action, actor') <- lift $ runStateT (getAction actorAI l) actor
+                                        put l{entityMap = Map.insert eid actor' (entityMap l)}
+                                        actionDone <- handleAction actor' action
+                                        if actionDone then
+                                            state (\l -> ((),l{
+                                                            nextActors = eids,
+                                                            prevActors = 
+                                                                eid:prevActors l
+                                                          }))
+                                               >> runTurn
+                                        else
+                                            return action
+
+    handleAction :: Entity Level -> Action -> RoguelikeM Level Bool
     handleAction e a = case a of
                          None -> return True
                          PlayerAction -> return False
                          Move dir -> moveEntity e dir
 
-    moveEntity :: (Entity Level) -> Direction -> RoguelikeM Level Bool
+    moveEntity :: Entity Level -> Direction -> RoguelikeM Level Bool
     moveEntity e dir = let (dx,dy,dz,dw) = toOffset dir
                            eid = entityID e
                            (x,y) = position e
@@ -159,7 +163,7 @@ module HaskellRoguelike.Level
                          else
                              do
                                success <- putEntity e (x',y')
-                               if success then 
+                               when success $
                                    do
                                      removeEntityFromCell e (x,y)
                                      l <- get
@@ -169,21 +173,15 @@ module HaskellRoguelike.Level
                                                      else
                                                          tellUpdateCell (x,y)
                                          Nothing -> tellUpdateCell (x,y)
-                               else 
-                                   return ()
-                               if (dz /= 0) || (dw /= 0) then 
-                                   return False
-                               else
-                                   return True
-
-    removeEntityFromCell :: (Entity Level) -> (Int,Int) -> RoguelikeM Level ()
+                               return $ not ((dz /= 0) || (dw /= 0)) 
+    removeEntityFromCell :: Entity Level -> (Int,Int) -> RoguelikeM Level ()
     removeEntityFromCell e p = 
         state (\l -> 
                    let eid = entityID e
-                       c = (cells l) ! p
+                       c = cells l ! p
                        es = entities c
                        cells' = 
-                           (cells l)//[(p,c{entities = filter ((/=) eid) es})]
+                           cells l//[(p,c{entities = filter (eid /=) es})]
                    in
                      ((), l{cells = cells'}))
                                   

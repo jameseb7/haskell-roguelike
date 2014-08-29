@@ -37,8 +37,8 @@ module HaskellRoguelike.LevelType where
                       if (x < x1) || (y < y1) || (x > x2) || (y > y2) then
                           Nothing
                       else
-                          Just ((cells l) ! (x,y))
-        setCell l p c = l{cells = (cells l)//[(p,c)]}
+                          Just (cells l ! (x,y))
+        setCell l p c = l{cells = cells l//[(p,c)]}
            
     levelHeight :: Int
     levelHeight = 20
@@ -61,7 +61,7 @@ module HaskellRoguelike.LevelType where
                  }
               
     symbolAt :: Level -> (Int, Int) -> Symbol
-    symbolAt l p = let c = (cells l) ! p
+    symbolAt l p = let c = cells l ! p
                    in cellSymbol c (entityMap l)
 
     getCellM :: CellGrid c =>  (Int,Int) -> RoguelikeM c (Maybe Cell)
@@ -77,52 +77,46 @@ module HaskellRoguelike.LevelType where
         do l <- get
            case playerID l of
              Just pid -> 
-                 do playerPos <- return (position $ (Map.!) (entityMap l) (pid))
+                 do let playerPos = position $ (Map.!) (entityMap l) pid
                     los <- hasLOS playerPos p
-                    case los of
-                      True -> tell [UpdateCell p (symbolAt l p)]
-                      False -> return ()
+                    when los $ tell [UpdateCell p (symbolAt l p)]
+
 
     tellDrawLevel :: RoguelikeM Level ()
     tellDrawLevel = 
         do l <- get
            case playerID l of
              Just pid -> 
-                 do doFOV (position $ (Map.!) (entityMap l) (pid))
+                 do doFOV (position $ (Map.!) (entityMap l) pid)
                     l' <- get
-                    xs <- return $ assocs (cells l')
-                    ys <- return $ map (\(p,c) -> (p,symbolAt l' p)) xs
+                    let xs = assocs (cells l')
+                    let ys = map (\(p,c) -> (p,symbolAt l' p)) xs
                     tell [DrawLevel 
-                          (array ((0,0), (levelWidth-1,levelHeight-1)) ys)]
+                          (array ((0,0), (xMax,yMax)) ys)]
              Nothing -> return ()
                        
                    
     cellSymbol :: Cell -> Map EntityID (Entity Level) -> Symbol
-    cellSymbol c m = 
-        if visible c then
+    cellSymbol c m
+        | visible c =
             case entities c of
               [] -> Visible (Left (baseSymbol c));
               e:es -> Visible (Right (entitySymbol ((Map.!) m e)))
-        else
-            if explored c then
-                Explored (baseSymbol c)
-            else
-                Unexplored
+        | explored c = Explored (baseSymbol c)
+        | otherwise = Unexplored
 
     isClear :: Cell -> Map EntityID (Entity Level) -> Bool
     isClear c m = 
         let hasLargeEntity = 
                 foldl 
-                (\b -> \eid -> b || ((entitySize $ (Map.!) m eid) == Large))
+                (\b eid -> b || (entitySize ((Map.!) m eid) == Large))
                 False (entities c)
             in
-              if hasLargeEntity then
-                  False
-              else
-                  case baseSymbol c of
-                    BlankTerrain -> True
-                    Floor -> True
-                    _ -> False
+              (not hasLargeEntity &&
+               (case baseSymbol c of
+                  BlankTerrain -> True
+                  Floor -> True
+                  _ -> False))
 
     blocksLOS :: Cell -> Bool
     blocksLOS c = case baseSymbol c of
@@ -141,37 +135,35 @@ module HaskellRoguelike.LevelType where
                           dy - dx
                       else
                           dx - dy
-              loop x y n = let (x',y',n') =
-                                     if dy > dx then
+              loop x y n = let (x',y',n') 
+                                   | dy > dx =
                                          if n <= 0 then
                                              (x+sx, y+sy, n+steps)
                                          else
                                              (x, y+sy, n-dx)
-                                     else
-                                         if n <= 0 then
-                                             (x+sx, y+sy, n+steps)
-                                         else
-                                             (x+sx, y, n-dy)           
+                                    | n <= 0 = (x+sx, y+sy, n+steps)
+                                    | otherwise = (x+sx, y, n-dy)           
                              in do mc <- getCellM (x,y)
                                    case mc of
                                      Nothing -> return False
                                      Just c -> do (b,c') <- return $ f c
                                                   setCellM (x,y) c'
-                                                  case (x == x1) && (y == y1) of
-                                                    True -> return True
-                                                    False -> 
-                                                        case b of
-                                                          True -> loop x' y' n'
-                                                          False -> return False
+                                                  if (x == x1) && (y == y1) then
+                                                      return True
+                                                  else 
+                                                      if b then
+                                                          loop x' y' n'
+                                                      else 
+                                                          return False
           
     hasLOS :: (Int,Int) -> (Int,Int) -> RoguelikeM Level Bool
     hasLOS p0 p1 = bresenhamLine p0 p1 (\c -> (blocksLOS c, c))
       
     doFOV :: (Int,Int) -> RoguelikeM Level ()
     doFOV p0 = 
-        let bl = (\p1 -> 
-                  bresenhamLine p0 p1 (\c -> (blocksLOS c, 
-                                              c{visible=True, explored=True})))
+        let bl p1 = bresenhamLine p0 p1 
+                    (\c -> (blocksLOS c, 
+                                      c{visible=True, explored=True}))
         in
           do 
             forM_ (range ((0,0), (xMax,yMax))) 

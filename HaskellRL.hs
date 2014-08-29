@@ -1,6 +1,7 @@
 import Control.Monad
 import Control.Monad.Random
 import Control.Monad.State
+import Control.Monad.Writer
 import System.Random
 import Data.Array
 import Data.Ix
@@ -14,31 +15,38 @@ import HaskellRoguelike.State
 import HaskellRoguelike.Symbol
 
 main = 
-    do initScr
+    do g <- getStdGen
+       writeFile "HaskellRL.log" ""
+       appendFile "HaskellRL.log" "setting up game...\n"
+       (l,_,rls,g',w) <- return $ runRoguelikeM setupGame () (RLState 0 None) g
+       sa <- handleRLDisplayActions w (array ((0,0), (xMax,yMax)) [(p,Unexplored) | p <- range ((0,0),(xMax,yMax))])
+       forM_ (range ((0,0), (xMax,yMax))) (\x -> appendFile "HaskellRL.log" (show x ++ ": " ++ show (sa ! x) ++ "\n"))
+       initScr
        echo False
        cBreak True
        nl False
-       g <- getStdGen
-       writeFile "HaskellRL.log" ""
-       (l,_,rls,g',w) <- return $ runRoguelikeM setupGame () (RLState 0 None) g
-       sa <- handleRLDisplayActions w (array ((0,0), (xMax,yMax)) [])
        refresh
+       appendFile "HaskellRL.log" "game set up\n"
        runGame l rls g' sa
        endWin
                                                   
 setupGame :: RoguelikeM () Level
 setupGame = 
-    do
+    do 
+      tell [LogMessage "setupGame started\n"]
       p <- makePlayer
-      (_,l) <- lift $ runStateT makeMaze blankLevel
-      x <- getRandomR (1, levelWidth-2)
-      y <- getRandomR (1, levelHeight-2)
-      (_,l') <- lift $ runStateT (addEntity p (x,y)) l
-      ((),l'') <- lift $ runStateT (doFOV (x,y)) l'
-      lift $ runStateT tellDrawLevel l''
+      x <- getRandomR (3, levelWidth-4)
+      y <- getRandomR (3, levelHeight-4)
+      let x' = if mod x 2 == 0 then x + 1 else x
+      let y' = if mod y 2 == 0 then y + 1 else y
+      tell [LogMessage "player made\n"]
+      (_,l) <- lift $ runStateT (makeMaze (x',y')) blankLevel
+      tell [LogMessage "level made\n"]
+      (_,l') <- lift $ runStateT (addEntityForce p (x',y')) l
+      (_,l'') <- lift $ runStateT tellDrawLevel l'
       return l''
 
-runGame :: Level -> RLState -> StdGen -> (Array (Int, Int) Symbol) -> IO ()
+runGame :: Level -> RLState -> StdGen -> Array (Int, Int) Symbol -> IO ()
 runGame l rls g sa = 
     do (a,l',rls',g',w) <- return $ runRoguelikeM runTurn l rls g
        sa' <- handleRLDisplayActions w sa
@@ -51,9 +59,9 @@ runGame l rls g sa =
                             case a' of
                               None -> return ()
                               _    -> runGame l' rls'{playerAction = a'} g' sa'
-         _ -> error ("Invalid Action at toplevel: " ++ (show a))
+         _ -> error ("Invalid Action at toplevel: " ++ show a)
 
-handleRLDisplayActions :: [RLDisplayAction] -> (Array (Int, Int) Symbol) -> IO (Array (Int, Int) Symbol)
+handleRLDisplayActions :: [RLDisplayAction] -> Array (Int, Int) Symbol -> IO (Array (Int, Int) Symbol)
 handleRLDisplayActions [] sa   = return sa
 handleRLDisplayActions (x:xs) sa = 
     case x of
@@ -92,7 +100,7 @@ readActionFromPlayer = do c <- getCh
                             KeyChar 'n' -> return $ Move SouthEast
                             KeyChar '1' -> return $ Move SouthWest
                             KeyChar 'b' -> return $ Move SouthWest
-                            KeyChar 'q' -> return $ None
+                            KeyChar 'q' -> return None
                             _           -> readActionFromPlayer
                             
 putMessage :: String -> IO ()
@@ -127,7 +135,7 @@ drawSymbol (x,y) s = mvWAddStr stdScr (y+1) x [c]
                 Unexplored -> ' '
                                             
 
-drawSymbolArray :: (Array (Int, Int) Symbol) -> IO ()
+drawSymbolArray :: Array (Int, Int) Symbol -> IO ()
 drawSymbolArray sa = forM_ xs (\x -> drawSymbol x (sa ! x))
     where xs = range ((0,0), (xMax,yMax))
 
@@ -172,7 +180,7 @@ getPlayerAction' = do c <- getChar
                         'n' -> return $ Move SouthEast
                         '1' -> return $ Move SouthWest
                         'b' -> return $ Move SouthWest
-                        'q' -> return $ None
+                        'q' -> return None
                         _   -> getPlayerAction'
 runGame' l rls g sa = 
     do (a,l',rls',g',w) <- return $ runRoguelikeM runTurn l rls g
@@ -184,7 +192,7 @@ runGame' l rls g sa =
                             case a' of
                               None -> return ()
                               _    -> runGame' l' rls'{playerAction = a'} g' sa'
-         _ -> error ("Invalid Action at toplevel: " ++ (show a))
+         _ -> error ("Invalid Action at toplevel: " ++ show a)
 debugMain = do g <- getStdGen
                (l,_,rls,g',w) <- return $ runRoguelikeM setupGame () (RLState 0 None) g
                sa <- handleRLDisplayActions' (array ((0,0), (xMax,yMax)) []) w
