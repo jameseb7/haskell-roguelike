@@ -30,7 +30,7 @@ main =
        endWin
 
 blankSymbolArray :: Array (Int,Int) Symbol
-blankSymbolArray = fmap (\ _ -> Unexplored) (array ((0,0), (xMax,yMax)) [])
+blankSymbolArray = fmap (const Unexplored) (array ((0,0), (xMax,yMax)) [])
                                                   
 setupGame :: RoguelikeM () Level
 setupGame = 
