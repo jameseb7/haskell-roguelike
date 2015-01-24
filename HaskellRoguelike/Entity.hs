@@ -22,7 +22,7 @@ module HaskellRoguelike.Entity
                       PlayerAI -> getPlayerAction l
 
     getPlayerAction :: Level -> RoguelikeM (Entity Level) Action
-    getPlayerAction l = 
+    getPlayerAction _ = 
         do s <- lift get
            let a = playerAction s
            lift (put s{playerAction = PlayerAction})

@@ -42,15 +42,18 @@ module HaskellRoguelike.LevelType where
            
     levelHeight :: Int
     levelHeight = 20
-    
     levelWidth :: Int
     levelWidth = 80
 
+    xMax :: Int
     xMax = levelWidth - 1
+    yMax :: Int
     yMax = levelHeight - 1
 
+    blankCell :: Cell
     blankCell = Cell BlankTerrain False False [] 
 
+    blankLevel :: Level
     blankLevel = Level {
                    cells = array ((0,0), (xMax,yMax)) 
                            [(p,blankCell) | p <- range ((0,0), (xMax,yMax))],
@@ -80,6 +83,7 @@ module HaskellRoguelike.LevelType where
                  do let playerPos = position $ (Map.!) (entityMap l) pid
                     los <- hasLOS playerPos p
                     when los $ tell [UpdateCell p (symbolAt l p)]
+             Nothing  -> return ()
 
 
     tellDrawLevel :: RoguelikeM Level ()
@@ -90,7 +94,7 @@ module HaskellRoguelike.LevelType where
                  do doFOV (position $ (Map.!) (entityMap l) pid)
                     l' <- get
                     let xs = assocs (cells l')
-                    let ys = map (\(p,c) -> (p,symbolAt l' p)) xs
+                    let ys = map (\(p,_) -> (p,symbolAt l' p)) xs
                     tell [DrawLevel 
                           (array ((0,0), (xMax,yMax)) ys)]
              Nothing -> return ()
@@ -101,7 +105,7 @@ module HaskellRoguelike.LevelType where
         | visible c =
             case entities c of
               [] -> Visible (Left (baseSymbol c));
-              e:es -> Visible (Right (entitySymbol ((Map.!) m e)))
+              e:_ -> Visible (Right (entitySymbol ((Map.!) m e)))
         | explored c = Explored (baseSymbol c)
         | otherwise = Unexplored
 

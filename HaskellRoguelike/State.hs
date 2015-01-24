@@ -6,8 +6,6 @@ module HaskellRoguelike.State where
     import Control.Monad.Random
     import Control.Monad.Writer
 
-    import System.Random
-
     import HaskellRoguelike.Action
     import HaskellRoguelike.Symbol
     

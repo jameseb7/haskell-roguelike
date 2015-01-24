@@ -2,7 +2,6 @@ module HaskellRoguelike.EntityType where
     
     import HaskellRoguelike.Symbol
     import HaskellRoguelike.State
-    import HaskellRoguelike.Action
 
     import Control.Monad.Trans
     import Control.Monad.State
