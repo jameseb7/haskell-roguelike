@@ -10,14 +10,7 @@ module HaskellRoguelike.LevelType where
     import HaskellRoguelike.Symbol
     import HaskellRoguelike.EntityType
 
-    data Cell = 
-        Cell { 
-          baseSymbol :: TerrainSymbol,
-          visible :: Bool,
-          explored :: Bool,
-          entities :: [EntityID]
-        }
-        deriving (Eq,Show)
+    
 
     class CellGrid c where
         getCell :: c -> (Int,Int) -> Maybe Cell
@@ -48,8 +41,6 @@ module HaskellRoguelike.LevelType where
 
     xMax = levelWidth - 1
     yMax = levelHeight - 1
-
-    blankCell = Cell BlankTerrain False False [] 
 
     blankLevel = Level {
                    cells = array ((0,0), (xMax,yMax)) 
@@ -94,35 +85,6 @@ module HaskellRoguelike.LevelType where
                     tell [DrawLevel 
                           (array ((0,0), (xMax,yMax)) ys)]
              Nothing -> return ()
-                       
-                   
-    cellSymbol :: Cell -> Map EntityID (Entity Level) -> Symbol
-    cellSymbol c m
-        | visible c =
-            case entities c of
-              [] -> Visible (Left (baseSymbol c));
-              e:es -> Visible (Right (entitySymbol ((Map.!) m e)))
-        | explored c = Explored (baseSymbol c)
-        | otherwise = Unexplored
-
-    isClear :: Cell -> Map EntityID (Entity Level) -> Bool
-    isClear c m = 
-        let hasLargeEntity = 
-                foldl 
-                (\b eid -> b || (entitySize ((Map.!) m eid) == Large))
-                False (entities c)
-            in
-              (not hasLargeEntity &&
-               (case baseSymbol c of
-                  BlankTerrain -> True
-                  Floor -> True
-                  _ -> False))
-
-    blocksLOS :: Cell -> Bool
-    blocksLOS c = case baseSymbol c of
-                    BlankTerrain -> True
-                    Floor -> True
-                    _ -> False
                     
     bresenhamLine :: CellGrid c => 
                      (Int,Int) -> (Int,Int) -> (Cell -> (Bool,Cell)) -> RoguelikeM c Bool

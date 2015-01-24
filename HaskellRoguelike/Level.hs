@@ -17,51 +17,6 @@ module HaskellRoguelike.Level
     import HaskellRoguelike.Entity
     import HaskellRoguelike.LevelType
 
-    uniformLevel :: Cell -> Level
-    uniformLevel c = 
-        let levelArray = array ((0,0), (xMax,yMax)) 
-                         [ (p, c) | p <- range ((0,0), (xMax,yMax)) ]
-        in blankLevel{cells = levelArray}
-
-    setCells :: Cell -> [(Int,Int)] -> RoguelikeM Level ()
-    setCells c ps = state (\l -> ((), l{cells = cells l//[(p,c) | p <- ps]}))
-
-    wallLevel :: RoguelikeM Level ()
-    wallLevel = do setCells blankCell{baseSymbol=VWall} (range ((0,    0),    (0,    yMax)))
-                   setCells blankCell{baseSymbol=VWall} (range ((xMax, 0),    (xMax, yMax)))
-                   setCells blankCell{baseSymbol=HWall} (range ((0,    0),    (xMax, 0)))
-                   setCells blankCell{baseSymbol=HWall} (range ((0,    yMax), (xMax, yMax)))
-
-    makeDefaultLevel :: RoguelikeM Level ()
-    makeDefaultLevel = 
-        do put $ uniformLevel (Cell Floor False False [])
-           wallLevel
-           xs <- getRandomRs (1, xMax-1)
-           ys <- getRandomRs (1, yMax-1)
-           setCells blankCell{baseSymbol=Rock} (zip (take 500 xs) (take 500 ys))
-
-    makeMaze :: (Int,Int) -> RoguelikeM Level ()
-    makeMaze p = do put $ uniformLevel (Cell Rock False False [])
-                    wallLevel
-                    setCellM p blankCell{baseSymbol=Floor}
-                    makeMaze' (neighbours p []) [p]
-        where makeMaze' [] _ = return ()
-              makeMaze' xs ys = 
-                  do (p1,p2) <- uniform xs
-                     setCellM p1 blankCell{baseSymbol=Floor}
-                     setCellM p2 blankCell{baseSymbol=Floor}
-                     makeMaze' (neighbours p1 ys ++ 
-                                           filter (\(a,_) -> a /= p1) xs) (p1:ys)
-              neighbours (x,y) ys = 
-                  filter (\(p',_) -> notElem p' ys) (p1++p2++p3++p4)
-                  where p1 = if x <= 2 then [] else [((x-2,y),(x-1,y))]
-                        p2 = if y <= 2 then [] else [((x,y-2),(x,y-1))]
-                        p3 = if x >= xMax-2 then [] else [((x+2,y),(x+1,y))]
-                        p4 = if y >= yMax-2 then [] else [((x,y+2),(x,y+1))]
-
-                                
-
-
     putEntity :: Entity Level -> (Int,Int) -> RoguelikeM Level Bool
     putEntity e p = do l <- get
                        let c = cells l ! p
