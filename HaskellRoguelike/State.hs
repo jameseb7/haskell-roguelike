@@ -1,6 +1,9 @@
 module HaskellRoguelike.State where
 
+    import Control.Monad
+    import Control.Monad.Identity
     import Control.Monad.State
+    import Control.Monad.Random
     import Control.Applicative
     
     -- Type to contain identifiers for entities, which are passed around in
@@ -33,14 +36,8 @@ module HaskellRoguelike.State where
     initialEntityID = EntityID 0
     
     newEntityID :: (Monad m) => EntityIDGenT m EntityID
-    newEntityID = EntityIDGenT (\eid@(EntityID x) -> return (eid, EntityID (x+1)))
+    newEntityID = EntityIDGenT (\eid@(EntityID x) 
+                                    -> return (eid, EntityID (x+1)))
 
     -- Monad transformer stack to hold all the state required by the roguelike
-    -- type RoguelikeM s a = 
-    --    StateT s (StateT EntityID (RandT StdGen Identity)) a
-    --                          
-    -- runRoguelikeM :: RoguelikeM s a -> s -> EntityID -> StdGen 
-    --                        -> (a, s, EntityID, StdGen)
-    -- runRoguelikeM f s rls g = (a, s', rls', g', w)
-    --     where ((((a, s'), rls'), g'), w) = 
-    --               runWriter (runRandT (runStateT (runStateT f s) rls) g)
+    type RLState s a =  StateT s (EntityIDGenT (RandT StdGen Identity)) a
