@@ -48,7 +48,8 @@ cabal-version:       >=1.10
 
 library
   -- Modules exported by the library.
-  exposed-modules:     HaskellRoguelike.State, HaskellRoguelike.Action, HaskellRoguelike.EntityType, HaskellRoguelike.Symbol
+  exposed-modules:     HaskellRoguelike.State, HaskellRoguelike.Action,
+                       HaskellRoguelike.Entity, HaskellRoguelike.Symbol
   
   -- Modules included in this library but not exported.
   -- other-modules:       
