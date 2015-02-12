@@ -1,4 +1,10 @@
-module HaskellRoguelike.State where
+module HaskellRoguelike.State 
+    (
+     EntityID, EntityIDGenT,
+     runEntityIDGenT, initialEntityID, newEntityID,
+     RLState
+    )
+    where
 
     import Control.Monad
     import Control.Monad.Identity
