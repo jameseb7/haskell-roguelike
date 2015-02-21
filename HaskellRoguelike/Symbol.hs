@@ -1,5 +1,9 @@
 module HaskellRoguelike.Symbol where
 
+    import Data.Array
+    import Data.Function
+    import Data.List
+
     data Symbol = Visible (Either TerrainSymbol EntitySymbol) | 
                   Explored TerrainSymbol |
                   Unexplored
@@ -31,3 +35,12 @@ module HaskellRoguelike.Symbol where
     symbolToChar (Visible (Right e)) = entitySymbolToChar e
     symbolToChar (Explored t)        = terrainSymbolToChar t
     symbolToChar Unexplored          = ' '
+
+    arrayToLists :: Array (Int,Int) a -> [[a]]
+    arrayToLists = map (map snd) . groupBy ((==) `on` (fst . fst)) . assocs
+
+    showSymbolArray :: Array (Int,Int) Symbol -> [String]
+    showSymbolArray = map (map symbolToChar) . transpose . arrayToLists
+
+    printSymbolArray :: Array (Int,Int) Symbol -> IO ()
+    printSymbolArray = mapM_ putStrLn . showSymbolArray
