@@ -104,9 +104,8 @@ module HaskellRoguelike.Level where
     lookupEntity :: Level -> EntityID -> Maybe Entity
     lookupEntity l e = Map.lookup e (entities l)
  
-    entitiesAtCell :: Level -> (Int,Int) -> [Entity]
-    entitiesAtCell l p = catMaybes $ map (lookupEntity l) $ cellEntities c
-        where c = cells l ! p
+    entitiesAtCell :: Level -> Cell -> [Entity]
+    entitiesAtCell l c = catMaybes $ map (lookupEntity l) $ cellEntities c
 
     compareEntitiesBySize :: Level -> EntityID -> EntityID -> Ordering
     compareEntitiesBySize l = compare `on` lookupSize
@@ -126,12 +125,12 @@ module HaskellRoguelike.Level where
              
     cellSymbol :: Level -> Cell -> Symbol
     cellSymbol l c
-        | visible c  = Visible $ case entityLookups $ cellEntities c of
+        | visible c  = Visible $ case symbols of
                                    []  -> Left (baseSymbol c)
-                                   x:_ -> Right (entitySymbol x)
+                                   x:_ -> Right x
         | explored c = Explored (baseSymbol c)
         | otherwise  = Unexplored
-        where entityLookups = catMaybes . map (lookupEntity l)
+        where symbols = catMaybes . map entitySymbol $ entitiesAtCell l c
 
     blocksLOS :: Level -> (Int,Int) -> Bool
     blocksLOS l p = case baseSymbol (cells l ! p) of
@@ -145,7 +144,7 @@ module HaskellRoguelike.Level where
     isClear l p = case entitySizes of
                     []  -> isClearSymbol
                     x:_ -> if x >= Large then False else isClearSymbol
-        where entitySizes = map entitySize $ entitiesAtCell l p
+        where entitySizes = map entitySize $ entitiesAtCell l (cells l ! p)
               isClearSymbol = case baseSymbol (cells l ! p) of
                                 BlankTerrain -> True
                                 Floor        -> True
