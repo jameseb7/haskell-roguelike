@@ -7,6 +7,8 @@ module HaskellRoguelike.Level where
     import Data.Map (Map)
     import Data.Maybe
 
+    import Control.Monad.Random
+
     import HaskellRoguelike.Entity
     import HaskellRoguelike.State
     import HaskellRoguelike.Symbol
@@ -23,32 +25,88 @@ module HaskellRoguelike.Level where
                entities :: Map EntityID Entity
              }
 
+    
+    levelXMin :: Int
+    levelXMin = 0
+
+    levelYMin :: Int
+    levelYMin = 0
+
     levelXMax :: Int
     levelXMax = 80
+
     levelYMax :: Int
     levelYMax = 20
 
+    levelBounds :: ((Int,Int),(Int,Int))
+    levelBounds = ((levelXMin,levelYMin), (levelXMax,levelYMax))
+    
+    levelTopBorder :: ((Int,Int),(Int,Int))
+    levelTopBorder = ((levelXMin,levelYMin), (levelXMax,levelYMin))
+
+    levelBottomBorder :: ((Int,Int),(Int,Int))
+    levelBottomBorder = ((levelXMin,levelYMax), (levelXMax,levelYMax))
+
+    levelLeftBorder :: ((Int,Int),(Int,Int))
+    levelLeftBorder = ((levelXMin,levelYMin), (levelXMin,levelYMax))
+
+    levelRightBorder :: ((Int,Int),(Int,Int))
+    levelRightBorder = ((levelXMax,levelYMin), (levelXMax,levelYMax))
+
+    -- = Functions to construct levels
+
+    -- A level filled uniformly with the specified cell
+    uniformLevel :: Cell -> Level
+    uniformLevel c = Level{
+                       cells = listArray levelBounds (repeat c),
+                       entities = Map.empty
+                     }
+
+    -- A blank cell
     blankCell :: Cell
     blankCell = Cell{
                   baseSymbol = BlankTerrain,
                   cellEntities = [],
                   explored = False,
-                  visible = False
+                  visible = True
                 }
 
+    cell :: TerrainSymbol -> Cell
+    cell s = blankCell{baseSymbol=s}
+
+    -- A level filled with blank cells
     blankLevel :: Level
-    blankLevel = Level{
-                   cells = listArray ((0,0),(levelXMax,levelYMax)) blanks,
-                   entities = Map.empty
-                 }
-        where blanks = repeat blankCell
+    blankLevel = uniformLevel blankCell
+
+    putCells :: [Cell] -> [(Int,Int)] -> Level -> Level
+    putCells cs ps l = l{cells = (cells l)//(zip ps cs)}
+
+    putCellRect :: Cell -> ((Int,Int),(Int,Int)) -> Level -> Level
+    putCellRect c b = putCells (repeat c) (range b)
+
+    putCell :: Cell -> (Int,Int) -> Level -> Level
+    putCell c p = putCells [c] [p]
+
+    putCellMulti :: Cell -> [(Int,Int)] -> Level -> Level
+    putCellMulti c = putCells (repeat c)
+
+    testLevel :: Rand StdGen Level
+    testLevel = do let l0 = uniformLevel (cell Floor)
+                   let l1 = putCellRect (cell VWall) levelLeftBorder l0
+                   let l2 = putCellRect (cell VWall) levelRightBorder l1
+                   let l3 = putCellRect (cell HWall) levelTopBorder l2
+                   let l4 = putCellRect (cell HWall) levelBottomBorder l3
+                   xs <- getRandomRs (levelXMin, levelXMax)
+                   ys <- getRandomRs (levelYMin, levelYMax)
+                   let ps = take 10 $ zip xs ys
+                   return $ putCellMulti (cell Rock) ps l4
 
     lookupEntity :: Level -> EntityID -> Maybe Entity
     lookupEntity l e = Map.lookup e (entities l)
  
-    entitiesAtCell :: (Int,Int) -> Level -> [Entity]
-    entitiesAtCell c l = catMaybes $ map (lookupEntity l) $ cellEntities cell
-        where cell = cells l ! c
+    entitiesAtCell :: Level -> (Int,Int) -> [Entity]
+    entitiesAtCell l p = catMaybes $ map (lookupEntity l) $ cellEntities c
+        where c = cells l ! p
 
     compareEntitiesBySize :: Level -> EntityID -> EntityID -> Ordering
     compareEntitiesBySize l = compare `on` lookupSize
@@ -75,5 +133,31 @@ module HaskellRoguelike.Level where
         | otherwise  = Unexplored
         where entityLookups = catMaybes . map (lookupEntity l)
 
-    printLevel :: Level -> IO ()
-    printLevel l = printSymbolArray $ fmap (cellSymbol l) $ cells l
+    blocksLOS :: Level -> (Int,Int) -> Bool
+    blocksLOS l p = case baseSymbol (cells l ! p) of
+                      BlankTerrain -> False
+                      Floor        -> False
+                      Rock         -> True
+                      HWall        -> True
+                      VWall        -> True
+
+    isClear :: Level -> (Int,Int) -> Bool
+    isClear l p = case entitySizes of
+                    []  -> isClearSymbol
+                    x:_ -> if x >= Large then False else isClearSymbol
+        where entitySizes = map entitySize $ entitiesAtCell l p
+              isClearSymbol = case baseSymbol (cells l ! p) of
+                                BlankTerrain -> True
+                                Floor        -> True
+                                Rock         -> False
+                                HWall        -> False
+                                VWall        -> False
+                                                
+
+    updateCells :: (Cell -> Cell) -> Level -> Level
+    updateCells f l = l{cells = fmap f (cells l)}
+
+    displayLevel :: Level -> IO ()
+    displayLevel l = printSymbolArray $ fmap (cellSymbol l) $ cells l
+
+    
