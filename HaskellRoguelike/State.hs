@@ -2,7 +2,8 @@ module HaskellRoguelike.State
     (
      EntityID, EntityIDGenT,
      runEntityIDGenT, initialEntityID, newEntityID,
-     RLState
+     RLState,
+     evalRLState
     )
     where
 
@@ -47,3 +48,15 @@ module HaskellRoguelike.State
 
     -- Monad transformer stack to hold all the state required by the roguelike
     type RLState s a =  StateT s (EntityIDGenT (RandT StdGen Identity)) a
+
+    instance (MonadRandom m) => MonadRandom (EntityIDGenT m) where
+        getRandom = lift getRandom
+        getRandoms = lift getRandoms
+        getRandomR = lift . getRandomR
+        getRandomRs = lift . getRandomRs
+
+    evalRLState :: RLState s a -> s -> EntityID -> StdGen -> a
+    evalRLState rls s eid g = a
+        where (a,_) = evalRand a' g
+              a' = runEntityIDGenT a'' eid
+              a'' = evalStateT rls s

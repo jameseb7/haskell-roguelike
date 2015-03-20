@@ -43,4 +43,7 @@ module HaskellRoguelike.Entity where
         | e `hasProperty` Invisible = Nothing
         | otherwise = Just $ baseEntitySymbol e
 
-    
+    testEntity :: (Monad m) => EntityIDGenT m Entity
+    testEntity = do e <- blankEntity
+                    return e{baseEntitySymbol = TestEntity1,
+                             entitySize = Large}

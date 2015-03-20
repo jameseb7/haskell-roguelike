@@ -14,6 +14,7 @@ module HaskellRoguelike.Symbol where
                          deriving (Eq, Show, Enum, Bounded)
 
     data EntitySymbol = BlankEntity | Player
+                      | TestEntity1 | TestEntity2 | TestEntity3
                         deriving (Eq, Show, Enum, Bounded)
 
     -- Converts a TerrainSymbol to a Char for the purpose of debug output
@@ -28,6 +29,9 @@ module HaskellRoguelike.Symbol where
     entitySymbolToChar :: EntitySymbol -> Char
     entitySymbolToChar BlankEntity = ' '
     entitySymbolToChar Player      = '@'
+    entitySymbolToChar TestEntity1 = '1'
+    entitySymbolToChar TestEntity2 = '2'
+    entitySymbolToChar TestEntity3 = '3'
 
     -- Converts a Symbol to a Char for the purpose of debug output
     symbolToChar :: Symbol -> Char

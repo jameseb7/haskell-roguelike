@@ -8,6 +8,7 @@ module HaskellRoguelike.Level where
     import Data.Maybe
 
     import Control.Monad.Random
+    import Control.Monad.State
 
     import HaskellRoguelike.Entity
     import HaskellRoguelike.State
@@ -90,17 +91,6 @@ module HaskellRoguelike.Level where
     putCellMulti :: Cell -> [(Int,Int)] -> Level -> Level
     putCellMulti c = putCells (repeat c)
 
-    testLevel :: Rand StdGen Level
-    testLevel = do let l0 = uniformLevel (cell Floor)
-                   let l1 = putCellRect (cell VWall) levelLeftBorder l0
-                   let l2 = putCellRect (cell VWall) levelRightBorder l1
-                   let l3 = putCellRect (cell HWall) levelTopBorder l2
-                   let l4 = putCellRect (cell HWall) levelBottomBorder l3
-                   xs <- getRandomRs (levelXMin, levelXMax)
-                   ys <- getRandomRs (levelYMin, levelYMax)
-                   let ps = take 10 $ zip xs ys
-                   return $ putCellMulti (cell Rock) ps l4
-
     lookupEntity :: Level -> EntityID -> Maybe Entity
     lookupEntity l e = Map.lookup e (entities l)
  
@@ -111,8 +101,8 @@ module HaskellRoguelike.Level where
     compareEntitiesBySize l = compare `on` lookupSize
         where lookupSize =  maybe minBound entitySize . lookupEntity l
 
-    addEntityAt :: Level -> (Int,Int) -> Entity -> Level
-    addEntityAt l p e = l{
+    addEntityAt :: Entity -> (Int,Int) -> Level -> Level
+    addEntityAt e p l = l{
                           cells = accum (addEntityCell l) (cells l) [(p, eid)],
                           entities = Map.insert eid e' $ entities l
                         }       
@@ -122,7 +112,14 @@ module HaskellRoguelike.Level where
     addEntityCell :: Level -> Cell -> EntityID -> Cell
     addEntityCell l c eid = c{cellEntities = insertEntity (cellEntities c)}
         where insertEntity = insertBy (compareEntitiesBySize l) eid
-             
+    
+    addEntityRandomClearM :: Entity -> RLState Level ()
+    addEntityRandomClearM e = 
+        do l <- get
+           let ps = filter (isClear l) $ indices (cells l)
+           i <- getRandomR (0,length ps - 1)
+           modify $ addEntityAt e (ps!!i)
+         
     cellSymbol :: Level -> Cell -> Symbol
     cellSymbol l c
         | visible c  = Visible $ case symbols of
@@ -150,8 +147,7 @@ module HaskellRoguelike.Level where
                                 Floor        -> True
                                 Rock         -> False
                                 HWall        -> False
-                                VWall        -> False
-                                                
+                                VWall        -> False                                            
 
     updateCells :: (Cell -> Cell) -> Level -> Level
     updateCells f l = l{cells = fmap f (cells l)}
@@ -159,4 +155,17 @@ module HaskellRoguelike.Level where
     displayLevel :: Level -> IO ()
     displayLevel l = printSymbolArray $ fmap (cellSymbol l) $ cells l
 
-    
+    testLevel :: Rand StdGen Level
+    testLevel = do let l0 = uniformLevel (cell Floor)
+                   let l1 = putCellRect (cell VWall) levelLeftBorder l0
+                   let l2 = putCellRect (cell VWall) levelRightBorder l1
+                   let l3 = putCellRect (cell HWall) levelTopBorder l2
+                   let l4 = putCellRect (cell HWall) levelBottomBorder l3
+                   xs <- getRandomRs (levelXMin, levelXMax)
+                   ys <- getRandomRs (levelYMin, levelYMax)
+                   let ps = take 10 $ zip xs ys
+                   return $ putCellMulti (cell Rock) ps l4
+
+    testLevelWithEntity :: RLState Level ()
+    testLevelWithEntity = do (lift . lift) testLevel >>= put
+                             lift testEntity >>= addEntityRandomClearM
