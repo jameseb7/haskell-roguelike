@@ -79,47 +79,40 @@ module HaskellRoguelike.Level where
     blankLevel :: Level
     blankLevel = uniformLevel blankCell
 
+    -- Replaces the cells of a level with the specified cells 
+    -- at the specified locations
     putCells :: [Cell] -> [(Int,Int)] -> Level -> Level
     putCells cs ps l = l{cells = (cells l)//(zip ps cs)}
 
+    -- Replaces the cells of a levels with the specified cell type 
+    -- within the rectangle having the specified corners
     putCellRect :: Cell -> ((Int,Int),(Int,Int)) -> Level -> Level
     putCellRect c b = putCells (repeat c) (range b)
 
+    -- Replaces the cell at a given location with the given cell
     putCell :: Cell -> (Int,Int) -> Level -> Level
     putCell c p = putCells [c] [p]
 
+    -- Replaces the cells at the given locations with copies of the given cell
     putCellMulti :: Cell -> [(Int,Int)] -> Level -> Level
     putCellMulti c = putCells (repeat c)
 
+    -- = Obtaining information about a level
+
+    -- Attempt to find an entity with the given ID within a level
     lookupEntity :: Level -> EntityID -> Maybe Entity
     lookupEntity l e = Map.lookup e (entities l)
  
+    -- Find all the entities within a given cell 
     entitiesAtCell :: Level -> Cell -> [Entity]
-    entitiesAtCell l c = catMaybes $ map (lookupEntity l) $ cellEntities c
+    entitiesAtCell l = catMaybes . map (lookupEntity l) . cellEntities
 
+    -- Compares two entities referenced by their IDs according to their size
     compareEntitiesBySize :: Level -> EntityID -> EntityID -> Ordering
     compareEntitiesBySize l = compare `on` lookupSize
         where lookupSize =  maybe minBound entitySize . lookupEntity l
 
-    addEntityAt :: Entity -> (Int,Int) -> Level -> Level
-    addEntityAt e p l = l{
-                          cells = accum (addEntityCell l) (cells l) [(p, eid)],
-                          entities = Map.insert eid e' $ entities l
-                        }       
-        where e' = e{position = Left p}
-              eid = entityID e
-
-    addEntityCell :: Level -> Cell -> EntityID -> Cell
-    addEntityCell l c eid = c{cellEntities = insertEntity (cellEntities c)}
-        where insertEntity = insertBy (compareEntitiesBySize l) eid
-    
-    addEntityRandomClearM :: Entity -> RLState Level ()
-    addEntityRandomClearM e = 
-        do l <- get
-           let ps = filter (isClear l) $ indices (cells l)
-           i <- getRandomR (0,length ps - 1)
-           modify $ addEntityAt e (ps!!i)
-         
+    -- Returns the symbol of a particular cell in a level
     cellSymbol :: Level -> Cell -> Symbol
     cellSymbol l c
         | visible c  = Visible $ case symbols of
@@ -129,6 +122,7 @@ module HaskellRoguelike.Level where
         | otherwise  = Unexplored
         where symbols = catMaybes . map entitySymbol $ entitiesAtCell l c
 
+    -- Returns whether or not a cell blocks line of sight
     blocksLOS :: Level -> (Int,Int) -> Bool
     blocksLOS l p = case baseSymbol (cells l ! p) of
                       BlankTerrain -> False
@@ -137,6 +131,7 @@ module HaskellRoguelike.Level where
                       HWall        -> True
                       VWall        -> True
 
+    -- Returns whether or not a cell is clear for moving into
     isClear :: Level -> (Int,Int) -> Bool
     isClear l p = case entitySizes of
                     []  -> isClearSymbol
@@ -147,25 +142,63 @@ module HaskellRoguelike.Level where
                                 Floor        -> True
                                 Rock         -> False
                                 HWall        -> False
-                                VWall        -> False                                            
+                                VWall        -> False
 
-    updateCells :: (Cell -> Cell) -> Level -> Level
-    updateCells f l = l{cells = fmap f (cells l)}
-
+    -- Prints out a level for debug purposes
     displayLevel :: Level -> IO ()
     displayLevel l = printSymbolArray $ fmap (cellSymbol l) $ cells l
 
-    testLevel :: Rand StdGen Level
+    -- = Mutating a level
+
+    -- Exported functions in this section should either map to (RLState Level a)
+    -- or (Level -> Level), allowing them to be used in monadic operations
+    -- either directly or through use of modify
+    
+    -- Puts an entity at the given location in a level
+    addEntityAt :: Entity -> (Int,Int) -> Level -> Level
+    addEntityAt e p l = l{
+                          cells = accum (addEntityCell l) (cells l) [(p, eid)],
+                          entities = Map.insert eid e' $ entities l
+                        }       
+        where e' = e{position = Left p}
+              eid = entityID e
+
+    -- Helper function for addEntityAt, puts the given entity into the given cell
+    addEntityCell :: Level -> Cell -> EntityID -> Cell
+    addEntityCell l c eid = c{cellEntities = insertEntity (cellEntities c)}
+        where insertEntity = insertBy (compareEntitiesBySize l) eid
+    
+    -- Puts an entity at a randomly chosen clear cell
+    addEntityRandomClearM :: Entity -> RLState Level ()
+    addEntityRandomClearM e = 
+        do l <- get
+           let ps = filter (isClear l) $ indices (cells l)
+           i <- getRandomR (0,length ps - 1)
+           modify $ addEntityAt e (ps!!i)   
+
+    -- applies a function to all cells in a level
+    updateCells :: (Cell -> Cell) -> Level -> Level
+    updateCells f l = l{cells = fmap f (cells l)}
+
+    -- = Level constructors
+                      
+    -- Exported functions in this section should return something of type 
+    -- EntityIDGenT (Rand StdGen) Level
+
+    -- Makes a level with walls and pillars of rock for testing purposes
+    testLevel :: EntityIDGenT (Rand StdGen) Level
     testLevel = do let l0 = uniformLevel (cell Floor)
                    let l1 = putCellRect (cell VWall) levelLeftBorder l0
                    let l2 = putCellRect (cell VWall) levelRightBorder l1
                    let l3 = putCellRect (cell HWall) levelTopBorder l2
                    let l4 = putCellRect (cell HWall) levelBottomBorder l3
-                   xs <- getRandomRs (levelXMin, levelXMax)
-                   ys <- getRandomRs (levelYMin, levelYMax)
+                   xs <- getRandomRs (levelXMin+1, levelXMax-1)
+                   ys <- getRandomRs (levelYMin+1, levelYMax-1)
                    let ps = take 10 $ zip xs ys
                    return $ putCellMulti (cell Rock) ps l4
 
-    testLevelWithEntity :: RLState Level ()
-    testLevelWithEntity = do (lift . lift) testLevel >>= put
-                             lift testEntity >>= addEntityRandomClearM
+    -- Makes a test level with an entity in for testing purposes
+    testLevelWithEntity :: EntityIDGenT (Rand StdGen) Level
+    testLevelWithEntity = do e <- testEntity
+                             l <- testLevel
+                             execStateT (addEntityRandomClearM e) l
