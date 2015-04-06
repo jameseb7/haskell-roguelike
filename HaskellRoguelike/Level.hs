@@ -202,3 +202,16 @@ module HaskellRoguelike.Level where
     testLevelWithEntity = do e <- testEntity
                              l <- testLevel
                              execStateT (addEntityRandomClearM e) l
+
+    -- Apply a state function to an entity in a level
+    promoteEntity :: EntityID -> RLState Entity a -> RLState Level (Maybe a)
+    promoteEntity eid x = 
+        do l <- get
+           mea <- maybe (return Nothing) 
+                  (fmap Just . lift . runStateT x)
+                  (Map.lookup eid (entities l))
+           case mea of
+             Nothing -> return Nothing
+             Just (a, e) -> 
+                 do put l{entities = Map.insert eid e (entities l)}
+                    return (Just a)
