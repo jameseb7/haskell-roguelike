@@ -54,6 +54,10 @@ module HaskellRoguelike.Level where
     levelRightBorder :: ((Int,Int),(Int,Int))
     levelRightBorder = ((levelXMax,levelYMin), (levelXMax,levelYMax))
 
+    inLevelBounds :: (Int,Int) -> Bool
+    inLevelBounds (x,y) = (x < levelXMin) || (x >= levelXMax) ||
+                        (y < levelYMin) || (y >= levelYMax)
+
     -- = Functions to construct levels
 
     -- A level filled uniformly with the specified cell
