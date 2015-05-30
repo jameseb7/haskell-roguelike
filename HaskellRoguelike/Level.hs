@@ -55,8 +55,8 @@ module HaskellRoguelike.Level where
     levelRightBorder = ((levelXMax,levelYMin), (levelXMax,levelYMax))
 
     inLevelBounds :: (Int,Int) -> Bool
-    inLevelBounds (x,y) = (x < levelXMin) || (x >= levelXMax) ||
-                        (y < levelYMin) || (y >= levelYMax)
+    inLevelBounds (x,y) = (x >= levelXMin) || (x < levelXMax) ||
+                        (y >= levelYMin) || (y < levelYMax)
 
     -- = Functions to construct levels
 

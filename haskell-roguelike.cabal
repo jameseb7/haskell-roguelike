@@ -50,7 +50,7 @@ library
   -- Modules exported by the library.
   exposed-modules:     HaskellRoguelike.State, HaskellRoguelike.Action,
                        HaskellRoguelike.Entity, HaskellRoguelike.Symbol,
-                       HaskellRoguelike.Level
+                       HaskellRoguelike.Level, HaskellRoguelike.LevelView
   
   -- Modules included in this library but not exported.
   -- other-modules:       
@@ -59,8 +59,8 @@ library
   -- other-extensions:    
   
   -- Other library packages from which modules are imported.
-  build-depends:       base >=4.7 && <4.8, 
-                       mtl >=2.1 && <2.2,
+  build-depends:       base, 
+                       mtl,
                        containers,
                        array,
                        MonadRandom

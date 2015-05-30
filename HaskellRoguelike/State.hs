@@ -3,7 +3,7 @@ module HaskellRoguelike.State
      EntityID, EntityIDGenT,
      runEntityIDGenT, initialEntityID, newEntityID,
      RLState,
-     evalRLState
+     evalRLState, runRLState, genState
     )
     where
 
@@ -11,8 +11,7 @@ module HaskellRoguelike.State
     import Control.Monad.Identity
     import Control.Monad.State
     import Control.Monad.Random
-    import Control.Applicative
-    
+     
     -- Type to contain identifiers for entities, which are passed around in
     -- the global state so that a unique identifier can be obtained whenever
     -- one is required.
@@ -60,3 +59,16 @@ module HaskellRoguelike.State
         where (a,_) = evalRand a' g
               a' = runEntityIDGenT a'' eid
               a'' = evalStateT rls s
+
+    runRLState :: RLState s a -> s -> EntityID -> StdGen
+               -> (a, s, EntityID, StdGen)
+    runRLState rls s eid g = (a, s', eid', g')
+        where a'' = runStateT rls s
+              a' = runEntityIDGenT a'' eid
+              (((a, s'), eid'), g') = runRand a' g
+
+    genState :: EntityIDGenT (Rand StdGen) s -> IO (s, EntityID, StdGen)
+    genState rls = do g <- newStdGen
+                      let a = runEntityIDGenT rls initialEntityID
+                      let ((s, eid), g') = runRand a g
+                      return (s, eid, g')
