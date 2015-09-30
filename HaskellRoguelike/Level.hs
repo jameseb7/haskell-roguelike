@@ -14,6 +14,11 @@ module HaskellRoguelike.Level where
     import HaskellRoguelike.State
     import HaskellRoguelike.Symbol
 
+    adjustM :: (Monad m, Ord k) => (a -> m a) -> k -> Map k a -> m (Map k a)
+    adjustM f k m = sequence (f <$> Map.lookup k m) >>= maybeInsertM k m
+        where maybeInsertM k' m' = maybe (return m) (insertM k' m')
+              insertM k' m' a    = return $ Map.insert k' a m'
+        
     data Cell = Cell{
                baseSymbol :: TerrainSymbol,
                cellEntities :: [EntityID],
@@ -169,8 +174,8 @@ module HaskellRoguelike.Level where
 
     -- Helper function for addEntityAt, puts the given entity into the given cell
     addEntityCell :: Level -> Cell -> EntityID -> Cell
-    addEntityCell l c eid = c{cellEntities = insertEntity (cellEntities c)}
-        where insertEntity = insertBy (compareEntitiesBySize l) eid
+    addEntityCell l c eid = c{cellEntities = insertEntityCell (cellEntities c)}
+        where insertEntityCell = insertBy (compareEntitiesBySize l) eid
     
     -- Puts an entity at a randomly chosen clear cell
     addEntityRandomClearM :: Entity -> RLState Level ()
@@ -178,7 +183,15 @@ module HaskellRoguelike.Level where
         do l <- get
            let ps = filter (isClear l) $ indices (cells l)
            i <- getRandomR (0,length ps - 1)
-           modify $ addEntityAt e (ps!!i)   
+           modify $ addEntityAt e (ps!!i)
+
+    -- moves the given entity to the given cell, does nothing if the entity is
+    -- not in the level
+    -- relocateEntity :: EntityID -> (Int,Int) -> RLState Level ()
+    -- relocateEntity eid (x', y') = do
+    --                             l <- get
+    --                             let me = lookupEntity l eid
+    --                             maybe (return ()) 
 
     -- applies a function to all cells in a level
     updateCells :: (Cell -> Cell) -> Level -> Level

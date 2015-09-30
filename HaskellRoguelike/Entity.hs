@@ -21,8 +21,8 @@ module HaskellRoguelike.Entity where
           baseEntitySymbol :: EntitySymbol,
           entitySize :: EntitySize,
           entityProperties :: Set EntityProperty,
-          ai :: Maybe AI
-          inventory :: Maybe [EntityID]
+          ai :: Maybe AI,
+          inventory :: Maybe (Set EntityID)
         }
 
     blankEntity :: (Monad m) => EntityIDGenT m Entity
@@ -33,11 +33,12 @@ module HaskellRoguelike.Entity where
                                   baseEntitySymbol = BlankEntity,
                                   entitySize = Small,
                                   entityProperties = Set.empty,
-                                  ai = Nothing
+                                  ai = Nothing,
+                                  inventory = Nothing
                                 }
 
-    hasProperty :: EntityProperty -> Entity -> Bool
-    hasProperty p e = Set.member p $ entityProperties e
+    hasProperty :: Entity -> EntityProperty -> Bool
+    hasProperty e p = Set.member p $ entityProperties e
 
     entitySymbol :: Entity -> Maybe EntitySymbol
     entitySymbol e
@@ -57,7 +58,7 @@ module HaskellRoguelike.Entity where
     -- entity being updated
     setContainer :: EntityID -> Entity -> Entity
     setContainer c e
-        | c != entityID e = e{position = Right c}
+        | c /= entityID e = e{position = Right c}
         | otherwise = error "setContainer: can't insert an entity into itself"
 
     -- This function fails if the entity identifier being inserted is the same
@@ -65,11 +66,11 @@ module HaskellRoguelike.Entity where
     -- being inserted into has no inventory
     insertEntity :: EntityID -> Entity -> Entity
     insertEntity eid e
-        | eid != entityID e = e{inventory = nub $ insert eid <$> inventory e}
+        | eid /= entityID e = e{inventory = Set.insert eid <$> inventory e}
         | otherwise = error "insertEntity: can't insert an entity into itself"
 
     removeEntity :: EntityID -> Entity -> Entity
-    removeEntity eid e = e{inventory = delete eid <$> inventory e}
+    removeEntity eid e = e{inventory = Set.delete eid <$> inventory e}
 
     testEntity :: (Monad m) => EntityIDGenT m Entity
     testEntity = do e <- blankEntity
